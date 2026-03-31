@@ -1,4 +1,64 @@
 my_data/
+
+# Zip files
+*.zip
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Model artifacts
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.safetensors
+
+# ML experiment tracking
+wandb/
+outputs/
+multirun/
+
+# Config files with secrets
+.env
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs and data
+logs/
+*.log
+tmp/
+data/
+
+# Robot/ML data files
+*.h5
+*.hdf5
+*.zarr
+episodes/
+demonstrations/
+
+# OS
 .DS_Store
+
