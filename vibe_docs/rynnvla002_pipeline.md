@@ -138,3 +138,4 @@ cameras:
 ```
 
 Training runs on: `caroline@100.83.46.36`
+`claude --resume bce41fc7-1308-4609-af3f-56556497f245`
