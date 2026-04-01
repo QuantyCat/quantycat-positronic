@@ -74,7 +74,7 @@ ACT trains via `lerobot-train`. It uses:
 ```bash
 export INPUT_DIR=       # path to your LeRobot dataset
 export WORK_DIR=        # pipeline working directory
-export OUTPUT_DIR=      # training output directory
+export OUTPUT_DIR=      # training output directory (e.g. my_data/training/model)
 export MODEL_TYPE=      # folder name under models/ (e.g. act)
 
 # Training (ACT — see models/act/train.sh for defaults)
@@ -83,6 +83,7 @@ export BATCH_SIZE=      # batch size                 (default: 8)
 export CHUNK_SIZE=      # action chunk size          (default: 100)
 export KL_WEIGHT=       # KL loss weight             (default: 10)
 export SAVE_STEPS=      # checkpoint save frequency  (default: 10000)
+
 ```
 
 ```bash
