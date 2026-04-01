@@ -114,3 +114,41 @@ cameras:
   front:   index 1 — 640x360 @ 30fps
   wrist:   index 0 — 640x360 @ 30fps
 ```
+
+---
+
+## Inference
+
+Copy checkpoint from training machine to local Mac:
+
+```bash
+scp -r caroline@100.83.46.36:~/quantycat-positronic/my_data/training/model/checkpoints/last/pretrained_model /Users/carolineshouraboura/Desktop/
+```
+
+Run inference:
+
+```bash
+lerobot-record \
+    --robot.type=so101_follower \
+    --robot.port=/dev/cu.usbmodem5B140331511 \
+    --robot.id=so101_follower \
+    --robot.cameras="{front: {type: opencv, index_or_path: 1, width: 640, height: 360, fps: 30}, wrist: {type: opencv, index_or_path: 0, width: 640, height: 360, fps: 30}}" \
+    --display_data=true \
+    --dataset.repo_id=local/eval_screwdriver \
+    --dataset.num_episodes=10 \
+    --dataset.single_task="Put the screwdriver into the cup" \
+    --dataset.push_to_hub=false \
+    --policy.path=/Users/carolineshouraboura/Desktop/pretrained_model \
+    --policy.device=mps
+
+<!-- TODO: remove these temp notes
+# kill inference
+pkill -f lerobot-record
+
+# clear eval dataset
+rm -rf ~/.cache/huggingface/lerobot/local/eval_screwdriver
+
+# resume claude chat
+claude --resume 79feca52-9e8a-46c7-a59f-f04ac90ddc62
+-->
+```
