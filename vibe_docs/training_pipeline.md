@@ -101,3 +101,16 @@ bash models/$MODEL_TYPE/train.sh
 ## Hard constraints
 
 - `$CHUNK_SIZE` at training time must be documented in `models/act/README.md` — the inference repo must use the same value.
+
+---
+
+## Hardware config
+
+```
+robot port:    /dev/cu.usbmodem5B140331511
+teleop port:   /dev/cu.usbmodem5B141144971
+
+cameras:
+  front:   index 1 — 640x360 @ 30fps
+  wrist:   index 0 — 640x360 @ 30fps
+```
