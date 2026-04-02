@@ -1,5 +1,12 @@
 Robot demos → RynnVLA-002 fine-tune → trained checkpoint → inference on SO-101.
 
+## Run training pipeline
+
+```bash
+source models/rynnvla-002/run_scripts/setup.sh
+source models/rynnvla-002/run_scripts/preprocess.sh
+```
+
 ## Full pipeline
 
 ```

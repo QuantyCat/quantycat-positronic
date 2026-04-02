@@ -20,13 +20,16 @@ Output structure:
                 ...
 
 Usage:
-    source models/rynnvla-002/config.sh
     python3 models/rynnvla-002/preprocessing/convert_lerobot.py
 """
 
 import json
 import os
+import shutil
 import sys
+
+from dotenv import load_dotenv
+load_dotenv("models/rynnvla-002/.env")
 
 import numpy as np
 from PIL import Image
@@ -38,23 +41,19 @@ def main():
     chunk_size = os.environ.get("CHUNK_SIZE")
 
     if not input_dir or not work_dir or not chunk_size:
-        print("ERROR: INPUT_DIR, WORK_DIR, and CHUNK_SIZE must be set. Run: source models/rynnvla-002/config.sh")
+        print("ERROR: INPUT_DIR, WORK_DIR, and CHUNK_SIZE must be set in models/rynnvla-002/.env")
         sys.exit(1)
 
     CHUNK_SIZE = int(chunk_size)
 
-    input_dir  = os.path.abspath(args.input_dir)
-    work_dir   = os.path.abspath(args.work_dir)
+    input_dir  = os.path.abspath(input_dir)
+    work_dir   = os.path.abspath(work_dir)
     output_dir = os.path.join(work_dir, "extracted")
 
-    if os.path.exists(output_dir):
-        print(f"ERROR: {output_dir} already exists. Delete it before rebuilding.")
-        sys.exit(1)
-
     try:
-        from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-    except ImportError:
-        print("ERROR: lerobot is not installed. Run: pip install lerobot")
+        from lerobot.datasets.lerobot_dataset import LeRobotDataset
+    except ImportError as e:
+        print(f"ERROR: failed to import from lerobot — {e}")
         sys.exit(1)
 
     # Read task name from dataset metadata
@@ -65,18 +64,49 @@ def main():
     task_name = task_instruction.replace(" ", "_")
     print(f"Task: {task_instruction}")
 
+    # Copy input data to work dir — input is never modified
+    dataset_dir = os.path.join(work_dir, "dataset")
+    if os.path.exists(dataset_dir):
+        print(f"ERROR: {dataset_dir} already exists. Delete it before rebuilding.")
+        sys.exit(1)
+    print(f"Copying input data to {dataset_dir}...")
+    shutil.copytree(input_dir, dataset_dir)
+
+    # Upgrade dataset from v2.1 to v3.0 if needed
+    info_path = os.path.join(dataset_dir, "meta", "info.json")
+    with open(info_path) as f:
+        info = json.load(f)
+    if info.get("codebase_version") == "v2.1":
+        print("Dataset is v2.1 — upgrading to v3.0...")
+        from lerobot.datasets.v30.convert_dataset_v21_to_v30 import convert_dataset
+        convert_dataset(repo_id="dataset", root=dataset_dir, push_to_hub=False)
+        print("Upgrade done.")
+
     # Load dataset
     print("Loading LeRobot dataset...")
-    dataset = LeRobotDataset(None, root=input_dir, tolerance_s=1e-4)
+    dataset = LeRobotDataset(None, root=dataset_dir, tolerance_s=1e-4)
     print(f"  {dataset.num_episodes} episodes, {len(dataset)} frames")
 
     skipped_chunks = 0
     total_chunks = 0
 
-    for ep_idx in tqdm(range(dataset.num_episodes), desc="Episodes"):
-        from_idx = dataset.episode_data_index["from"][ep_idx].item()
-        to_idx   = dataset.episode_data_index["to"][ep_idx].item()
-        ep_len   = to_idx - from_idx
+    # Group all frames by episode
+    episodes = {}
+    for i in tqdm(range(len(dataset)), desc="Reading frames"):
+        frame  = dataset[i]
+        ep_idx = frame["episode_index"].item()
+        if ep_idx not in episodes:
+            episodes[ep_idx] = {"front_images": [], "wrist_images": [], "states": [], "actions": []}
+        episodes[ep_idx]["front_images"].append((frame["observation.images.front"].permute(1, 2, 0).numpy() * 255).astype(np.uint8))
+        episodes[ep_idx]["wrist_images"].append((frame["observation.images.wrist"].permute(1, 2, 0).numpy() * 255).astype(np.uint8))
+        episodes[ep_idx]["states"].append(frame["observation.state"].numpy().astype(np.float32))
+        episodes[ep_idx]["actions"].append(frame["action"].numpy().astype(np.float32))
+
+    for ep_idx in tqdm(sorted(episodes.keys()), desc="Writing episodes"):
+        ep      = episodes[ep_idx]
+        states  = np.array(ep["states"])
+        actions = np.array(ep["actions"])
+        ep_len  = len(states)
 
         ep_dir         = os.path.join(output_dir, task_name, f"episode_{ep_idx:06d}")
         front_dir      = os.path.join(ep_dir, "front_image")
@@ -88,43 +118,21 @@ def main():
         os.makedirs(wrist_dir, exist_ok=True)
         os.makedirs(state_dir, exist_ok=True)
 
-        # Collect all frames for this episode first
-        states  = []
-        actions = []
-        front_images = []
-        wrist_images = []
-
-        for i in range(ep_len):
-            frame = dataset[from_idx + i]
-            # Images come as CHW float32 [0, 1] — convert to HWC uint8
-            front = (frame["observation.images.front"].permute(1, 2, 0).numpy() * 255).astype(np.uint8)
-            wrist = (frame["observation.images.wrist"].permute(1, 2, 0).numpy() * 255).astype(np.uint8)
-            front_images.append(front)
-            wrist_images.append(wrist)
-            states.append(frame["observation.state"].numpy().astype(np.float32))
-            actions.append(frame["action"].numpy().astype(np.float32))
-
-        states  = np.array(states)   # (T, 6)
-        actions = np.array(actions)  # (T, 6)
-
         for t in range(ep_len):
-            # Save image and state for every timestep
-            Image.fromarray(front_images[t]).save(os.path.join(front_dir, f"image_{t}.png"))
-            Image.fromarray(wrist_images[t]).save(os.path.join(wrist_dir, f"image_{t}.png"))
+            Image.fromarray(ep["front_images"][t]).save(os.path.join(front_dir, f"image_{t}.png"))
+            Image.fromarray(ep["wrist_images"][t]).save(os.path.join(wrist_dir, f"image_{t}.png"))
             np.save(os.path.join(state_dir, f"state_{t}.npy"), states[t])
 
-            # Action chunks require CHUNK_SIZE future steps
             if t + CHUNK_SIZE > ep_len:
                 continue
 
             total_chunks += 1
-            action_chunk = actions[t : t + CHUNK_SIZE]  # (20, 6)
+            action_chunk = actions[t : t + CHUNK_SIZE]
 
             # Relative actions: subtract current state; keep gripper absolute
             rel_chunk = action_chunk - states[t][np.newaxis, :]
             rel_chunk[:, -1] = action_chunk[:, -1]
 
-            # Skip no-op chunks
             if np.sum(np.abs(rel_chunk)) == 0:
                 skipped_chunks += 1
                 continue

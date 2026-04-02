@@ -1,0 +1,10 @@
+export MODEL_ROOT=models/rynnvla-002
+
+if ! conda env list | grep -q "^rynnvla002 "; then
+    echo "Creating conda environment rynnvla002..."
+    conda create -n rynnvla002 python=3.13 -y
+    conda run -n rynnvla002 pip install -r models/rynnvla-002/requirements.txt
+fi
+
+conda activate rynnvla002
+export PYTHON=$(conda run -n rynnvla002 which python3)

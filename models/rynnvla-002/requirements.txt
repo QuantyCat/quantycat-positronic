@@ -1,8 +1,6 @@
 # Data preprocessing — converting LeRobot format to RynnVLA-002 training format
-# venv: models/rynnvla-002/rynnvla002-venv
-# To recreate: python3 -m venv models/rynnvla-002/rynnvla002-venv && source models/rynnvla-002/rynnvla002-venv/bin/activate && pip install -r models/rynnvla-002/requirements.txt
-
-# Data preprocessing 
+# Conda env: rynnvla002 (python 3.13)
+# To recreate: source models/rynnvla-002/run_scripts/setup.sh
 accelerate==1.13.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.5
@@ -74,6 +72,7 @@ pyobjc-framework-CoreText==12.1
 pyobjc-framework-Quartz==12.1
 pyserial==3.5
 python-dateutil==2.9.0.post0
+python-dotenv==1.2.2
 PyYAML==6.0.3
 pyyaml-include==1.4.1
 regex==2026.3.32
@@ -99,6 +98,7 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.6.3
 wandb==0.24.2
+wheel==0.46.3
 xxhash==3.6.0
 yarl==1.23.0
 zipp==3.23.0
