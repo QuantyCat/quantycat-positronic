@@ -28,23 +28,25 @@ import os
 import shutil
 import sys
 
-from dotenv import load_dotenv
-load_dotenv("models/rynnvla-002/.env")
+import yaml
 
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
+CONFIG_PATH = "models/rynnvla-002/config.yaml"
+
 def main():
-    input_dir  = os.environ.get("INPUT_DIR")
-    work_dir   = os.environ.get("WORK_DIR")
-    chunk_size = os.environ.get("CHUNK_SIZE")
+    with open(CONFIG_PATH) as f:
+        config = yaml.safe_load(f)
 
-    if not input_dir or not work_dir or not chunk_size:
-        print("ERROR: INPUT_DIR, WORK_DIR, and CHUNK_SIZE must be set in models/rynnvla-002/.env")
+    input_dir  = config.get("input_dir")
+    work_dir   = config.get("work_dir")
+    CHUNK_SIZE = config.get("chunk_size")
+
+    if not input_dir or not work_dir or not CHUNK_SIZE:
+        print(f"ERROR: input_dir, work_dir, and chunk_size must be set in {CONFIG_PATH}")
         sys.exit(1)
-
-    CHUNK_SIZE = int(chunk_size)
 
     input_dir  = os.path.abspath(input_dir)
     work_dir   = os.path.abspath(work_dir)

@@ -1,4 +1,4 @@
-export MODEL_ROOT=models/rynnvla-002
+export MODEL_ROOT=models/rynnvla-002  # structural — always this path, not configurable
 
 if ! conda env list | grep -q "^rynnvla002 "; then
     echo "Creating conda environment rynnvla002..."
