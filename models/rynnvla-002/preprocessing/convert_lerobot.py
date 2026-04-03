@@ -90,20 +90,10 @@ def main():
     skipped_chunks = 0
     total_chunks = 0
 
-    # Group all frames by episode
-    episodes = {}
-    for i in tqdm(range(len(dataset)), desc="Reading frames"):
-        frame  = dataset[i]
-        ep_idx = frame["episode_index"].item()
-        if ep_idx not in episodes:
-            episodes[ep_idx] = {"front_images": [], "wrist_images": [], "states": [], "actions": []}
-        episodes[ep_idx]["front_images"].append((frame["observation.images.front"].permute(1, 2, 0).numpy() * 255).astype(np.uint8))
-        episodes[ep_idx]["wrist_images"].append((frame["observation.images.wrist"].permute(1, 2, 0).numpy() * 255).astype(np.uint8))
-        episodes[ep_idx]["states"].append(frame["observation.state"].numpy().astype(np.float32))
-        episodes[ep_idx]["actions"].append(frame["action"].numpy().astype(np.float32))
+    def flush_episode(ep_idx, ep):
+        """Write one episode worth of data to disk, then it can be GC'd."""
+        nonlocal skipped_chunks, total_chunks
 
-    for ep_idx in tqdm(sorted(episodes.keys()), desc="Writing episodes"):
-        ep      = episodes[ep_idx]
         states  = np.array(ep["states"])
         actions = np.array(ep["actions"])
         ep_len  = len(states)
@@ -141,6 +131,31 @@ def main():
             os.makedirs(chunk_dir, exist_ok=True)
             for j in range(CHUNK_SIZE):
                 np.save(os.path.join(chunk_dir, f"{j}.npy"), rel_chunk[j])
+
+    # Stream frames one at a time — only one episode is in RAM at once.
+    # Frames are ordered by episode in the LeRobot dataset, so we detect
+    # episode boundaries and flush each episode to disk before loading the next.
+    current_ep_idx = None
+    current_ep     = None
+
+    for i in tqdm(range(len(dataset)), desc="Converting episodes"):
+        frame  = dataset[i]
+        ep_idx = frame["episode_index"].item()
+
+        if ep_idx != current_ep_idx:
+            if current_ep is not None:
+                flush_episode(current_ep_idx, current_ep)
+            current_ep_idx = ep_idx
+            current_ep     = {"front_images": [], "wrist_images": [], "states": [], "actions": []}
+
+        current_ep["front_images"].append((frame["observation.images.front"].permute(1, 2, 0).numpy() * 255).astype(np.uint8))
+        current_ep["wrist_images"].append((frame["observation.images.wrist"].permute(1, 2, 0).numpy() * 255).astype(np.uint8))
+        current_ep["states"].append(frame["observation.state"].numpy().astype(np.float32))
+        current_ep["actions"].append(frame["action"].numpy().astype(np.float32))
+
+    # Flush the last episode
+    if current_ep is not None:
+        flush_episode(current_ep_idx, current_ep)
 
     print(f"\nDone.")
     print(f"  Extracted data: {output_dir}")
