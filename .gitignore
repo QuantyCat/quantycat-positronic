@@ -16,6 +16,9 @@ ENV/
 dist/
 build/
 
+# Checkpoints
+models/rynnvla-002/ckpts/
+
 # Model artifacts
 *.pt
 *.pth
