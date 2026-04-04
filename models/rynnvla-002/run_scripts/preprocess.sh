@@ -6,5 +6,11 @@ fi
 echo "--- Step 1: Convert LeRobot dataset to RynnVLA-002 format ---"
 $PYTHON $MODEL_ROOT/preprocessing/convert_lerobot.py || return 1
 
+echo ""
 echo "--- Step 2: Generate conversation JSON ---"
 $PYTHON $MODEL_ROOT/preprocessing/generate_conversations.py || return 1
+
+echo ""
+echo "--- Step 3: Verify outputs ---"
+$PYTHON $MODEL_ROOT/preprocessing/verify.py || return 1
+echo ""
