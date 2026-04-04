@@ -6,7 +6,7 @@ Converts a LeRobot v2.1 dataset into the per-episode folder structure
 that RynnVLA-002's conversation generation script expects.
 
 Output structure:
-    $WORK_DIR/extracted/
+    $WORK_DIR/training_data/
         TASK_NAME/
             episode_000000/
                 front_image/image_0.png, image_1.png ...
@@ -50,7 +50,11 @@ def main():
 
     input_dir  = os.path.abspath(input_dir)
     work_dir   = os.path.abspath(work_dir)
-    output_dir = os.path.join(work_dir, "extracted")
+    output_dir = os.path.join(work_dir, "training_data")
+
+    if os.path.exists(output_dir):
+        print(f"training_data/ already exists — skipping. Delete {output_dir} to rerun.")
+        return
 
     try:
         from lerobot.datasets.lerobot_dataset import LeRobotDataset
@@ -159,8 +163,14 @@ def main():
     if current_ep is not None:
         flush_episode(current_ep_idx, current_ep)
 
+    # Clean up intermediate copies — only training_data/ is needed going forward
+    for leftover in [dataset_dir, os.path.join(work_dir, "dataset_old")]:
+        if os.path.exists(leftover):
+            print(f"Cleaning up {leftover}...")
+            shutil.rmtree(leftover)
+
     print(f"\nDone.")
-    print(f"  Extracted data: {output_dir}")
+    print(f"  Training data: {output_dir}")
     print(f"  Action chunks written: {total_chunks - skipped_chunks}")
     print(f"  No-op chunks skipped:  {skipped_chunks}")
 

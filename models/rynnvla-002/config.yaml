@@ -1,9 +1,10 @@
 # Paths — relative to repo root
 input_dir: my_data/input_data
 work_dir: my_data/training_pipeline
+task_label: screwdriver  # short label used in output filenames
 
 # Must be consistent across preprocessing, training, and inference
-chunk_size: 20
-action_dim: 6
-resolution: 256
-his: 13
+chunk_size: 20 #20 is default value for RynnVLA-002
+action_dim: 6 #specific to SO-101 robot (6 joints)
+resolution: 256 #256 is default value for RynnVLA-002
+his: 1 #(history) the LeRobot training config uses his_1, LIBERO uses his_2
