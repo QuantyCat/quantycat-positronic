@@ -8,10 +8,16 @@ if ! command -v conda &> /dev/null; then
     return 1
 fi
 
+if [[ "$(uname)" == "Darwin" ]]; then
+    REQUIREMENTS="$MODEL_ROOT/requirements-mac.txt"
+else
+    REQUIREMENTS="$MODEL_ROOT/requirements-linux.txt"
+fi
+
 if ! conda env list | grep -q "^rynnvla002 "; then
     echo "Creating conda environment rynnvla002..."
     conda create -n rynnvla002 python=3.13 -y
-    conda run -n rynnvla002 pip install -r models/rynnvla-002/requirements.txt
+    conda run -n rynnvla002 pip install -r "$REQUIREMENTS"
 fi
 
 conda activate rynnvla002
