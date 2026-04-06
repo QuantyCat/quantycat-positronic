@@ -6,34 +6,19 @@ RynnVLA-002 has two components:
 
 ---
 
-## Run preprocessing pipeline
+## Forked repo
 
-```bash
-source models/rynnvla-002/run_scripts/setup.sh
-source models/rynnvla-002/run_scripts/preprocess.sh
-```
+We forked the original to [github.com/QuantyCat/RynnVLA-002](https://github.com/QuantyCat/RynnVLA-002) to store dataset-specific changes. Lives at `~/RynnVLA-002/` on the training machine.
 
-`preprocess.sh` runs all preprocessing steps in order and skips any step whose output already exists.
+Three files changed from the original:
 
-Steps run by `preprocess.sh`:
-1. Convert LeRobot dataset → per-episode training_data/ folders
-2. Generate conversation JSON from training_data/
-3. Calculate action and state min/max values (paste into item_processor.py before pretokenizing)
-4. Verify all outputs
+**`data_lerobot/item_processor.py`** — updated `MIN/MAX_VALUES_ACTION` and `MIN/MAX_VALUES_STATE` from LIBERO values to actual screwdriver dataset values. Used to normalize joint values to [-1, 1] during pretokenization.
 
----
+**`eval_solver_lerobot_action_head_state.py`** — updated `unnorm_min_max()` with the same action min/max. Inference-time mirror — denormalizes predicted tokens back into real joint values before sending to the robot.
 
-## Download model weights (run on training machine)
-
-```bash
-source .env  # loads HF_TOKEN
-bash models/rynnvla-002/run_scripts/download_weights.sh
-```
-
-Downloads to `models/rynnvla-002/ckpts/`:
-- `chameleon/tokenizer` — Lumina-mGPT tokenizer
-- `chameleon/base_model` — Chameleon 7B base weights (~14GB)
-- `starting_point` — RynnVLA-002 pretrained checkpoint (~14GB)
+**`data_lerobot/pretoken_lerobot_state.py`** — two fixes:
+- Subprocess Python invocation changed from hardcoded `"python"` to `sys.executable` so workers inherit the conda environment
+- Worker count changed from hardcoded `32` to `num_gpus * 4` to avoid GPU OOM
 
 ---
 
@@ -53,9 +38,10 @@ my_data/training_pipeline/training_data/
 my_data/training_pipeline/conversations/
     libero_<task_label>_his_<his>_train_img_state_abs_ck_1_<resolution>.json
     ↓  Step 3 — preprocessing/calculate_min_max_action.py + calculate_min_max_state.py
-min/max values → paste into RynnVLA-002/rynnvla-002/data_lerobot/item_processor.py
-    ↓  Step 4 — pretokenization (run from RynnVLA-002 repo on training machine)
-tokens/
+min/max values → saved to my_data/training_pipeline/min_max_*.txt
+                 paste into RynnVLA-002/rynnvla-002/data_lerobot/item_processor.py
+    ↓  Step 4 — pretokenization
+tokens/vla_data/
     files/*.pkl
     record.json
     ↓  Step 5 — fine-tune
@@ -82,34 +68,54 @@ his: 1                         # RynnVLA-002 default
 
 ---
 
-## Step 4 — Pretokenization (on training machine)
+## Prerequisites — download model weights
 
-Before running, update the min/max normalization values in
-`RynnVLA-002/rynnvla-002/data_lerobot/item_processor.py` with the output
-from Step 3. The hardcoded values there are from LIBERO — not your data.
-
-Then run from the RynnVLA-002 repo:
+Run once on the training machine before preprocessing:
 
 ```bash
-cd RynnVLA-002/rynnvla-002/data_lerobot
-python pretoken_lerobot_state.py \
-    --input_file path/to/conversations/libero_screwdriver_his_1_train_img_state_abs_ck_1_256.json \
-    --output_dir path/to/tokens/vla_data \
-    --resolution 256 \
-    --tokenizer_path ../ckpts/chameleon/tokenizer
+source .env  # loads HF_TOKEN
+python3 models/rynnvla-002/run_scripts/download_weights.py
 ```
+
+Downloads to `~/RynnVLA-002/rynnvla-002/ckpts/`:
+- `chameleon/tokenizer` — raw Chameleon tokenizer (vqgan.ckpt etc.)
+- `chameleon/base_model` — Chameleon 7B weights in HuggingFace format (~14GB)
+- `starting_point` — RynnVLA-002 pretrained checkpoint (~14GB)
 
 ---
 
-## Step 5 — Fine-tune (on training machine)
+## Steps 1–4 — Preprocessing
 
-Update the data config YAML to point at your record.json:
+```bash
+source models/rynnvla-002/run_scripts/setup.sh
+source models/rynnvla-002/run_scripts/preprocess.sh
+```
+
+`preprocess.sh` runs all steps in order and skips any step whose output already exists:
+
+1. Convert LeRobot dataset → per-episode `training_data/` folders
+2. Generate conversation JSON from `training_data/`
+3. Calculate action and state min/max values → saved to `min_max_action.txt` / `min_max_state.txt`
+4. Pretokenize — converts every episode frame into a `.pkl` token file
+
+**What pretokenization does:** each frame is converted into a flat token sequence. Three things per frame:
+- **Images** — front + wrist frames run through VQ-GAN, compressed into discrete tokens (slow GPU step)
+- **Actions** — 6 joint movements bucketed into discrete bins, encoded as tokens
+- **States** — same for the 6 joint positions
+
+Workers split frames evenly and run in parallel (`num_gpus × 4` workers). Logs go to `tokens/vla_data/logs/worker_N.log`.
+
+---
+
+## Step 5 — Fine-tune
+
+Update the data config YAML to point at your `record.json`:
 
 ```
 RynnVLA-002/rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_20_256_pretokenize.yaml
 ```
 
-Then run training:
+Then run:
 
 ```bash
 cd RynnVLA-002/rynnvla-002/exps_pretokenize
@@ -124,10 +130,6 @@ Key training flags:
 ---
 
 ## Step 6 — Inference on SO-101
-
-Before running, fix `unnorm_min_max()` in `eval_solver_lerobot_action_head_state.py`
-— replace the hardcoded min/max with values from your training data (same values
-you put in item_processor.py).
 
 ```python
 from rynnvla002 import Solver
@@ -156,6 +158,6 @@ teleop port:  /dev/cu.usbmodem5B141144971
 cameras:
   front:  index 1 — 640x360 @ 30fps
   wrist:  index 0 — 640x360 @ 30fps
-```
 
-Training machine: `caroline@100.83.46.36`
+training machine: caroline@100.83.46.36
+```

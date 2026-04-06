@@ -28,7 +28,7 @@ if not token:
     sys.exit(1)
 
 REPO     = "Alibaba-DAMO-Academy/WorldVLA"
-CKPTS    = "models/rynnvla-002/ckpts"
+CKPTS    = os.path.expanduser("~/RynnVLA-002/rynnvla-002/ckpts")
 
 # 1. chameleon/tokenizer → ckpts/chameleon/tokenizer
 print("\n=== 1/3 Downloading chameleon/tokenizer ===")

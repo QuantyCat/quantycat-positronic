@@ -14,10 +14,19 @@ else
     REQUIREMENTS="$MODEL_ROOT/requirements-linux.txt"
 fi
 
+INSTALL_FLAG="$MODEL_ROOT/.installed_$(uname)"
+
 if ! conda env list | grep -q "^rynnvla002 "; then
     echo "Creating conda environment rynnvla002..."
     conda create -n rynnvla002 python=3.13 -y
-    conda run -n rynnvla002 pip install -r "$REQUIREMENTS"
+    rm -f "$INSTALL_FLAG"
+fi
+
+if [ ! -f "$INSTALL_FLAG" ]; then
+    echo "Installing requirements..."
+    conda run -n rynnvla002 pip install -r "$REQUIREMENTS" && touch "$INSTALL_FLAG"
+else
+    echo "Requirements already installed. Delete $INSTALL_FLAG to force reinstall."
 fi
 
 conda activate rynnvla002
