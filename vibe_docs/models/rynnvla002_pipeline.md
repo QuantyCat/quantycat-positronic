@@ -18,7 +18,7 @@ Three files changed from the original:
 
 **`data_lerobot/pretoken_lerobot_state.py`** — two fixes:
 - Subprocess Python invocation changed from hardcoded `"python"` to `sys.executable` so workers inherit the conda environment
-- Worker count changed from hardcoded `32` to `num_gpus * 4` to avoid GPU OOM
+- Worker count changed from hardcoded `32` to `num_gpus * 16` — tuned for RTX 5090 (each worker uses ~1.15GB, 16 workers ≈ 18GB)
 
 ---
 
@@ -103,7 +103,7 @@ source models/rynnvla-002/run_scripts/preprocess.sh
 - **Actions** — 6 joint movements bucketed into discrete bins, encoded as tokens
 - **States** — same for the 6 joint positions
 
-Workers split frames evenly and run in parallel (`num_gpus × 4` workers). Logs go to `tokens/vla_data/logs/worker_N.log`.
+Workers split frames evenly and run in parallel (`num_gpus × 16` workers). Logs go to `tokens/vla_data/logs/worker_N.log`. Each worker uses ~1.15GB VRAM — 16 workers ≈ 18GB on a 32GB card. Estimated time on RTX 5090: ~30–45 min for a ~36k frame dataset (vs ~2.5hrs with 4 workers — GPU was only at 4% util so the bottleneck is CPU, not GPU, and scales near-linearly).
 
 ---
 
