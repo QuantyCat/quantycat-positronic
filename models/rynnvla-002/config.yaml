@@ -2,9 +2,20 @@
 input_dir: my_data/input_data
 work_dir: my_data/training_pipeline
 task_label: screwdriver  # short label used in output filenames
+robot: so101            # robot name
 
 # Must be consistent across preprocessing, training, and inference
-chunk_size: 20 #20 is default value for RynnVLA-002
-action_dim: 6 #specific to SO-101 robot (6 joints)
-resolution: 256 #256 is default value for RynnVLA-002
-his: 1 #(history) the LeRobot training config uses his_1, LIBERO uses his_2
+chunk_size: 20       # 20 is default value for RynnVLA-002 - paper training ran 5 or 10 for LIBERO and 20 for SO-101 examples
+action_dim: 6        # specific to SO-101 robot (6 joints)
+resolution: 256      # 256 is default value for RynnVLA-002
+his: 1               # (history) the LeRobot training config uses his_1, LIBERO uses his_2
+
+# Training
+batch_size: 2        # samples per GPU per step - reduced from 4 due to memory with direct CUDA load
+num_workers: 16      # CPU workers for data loading (machine has 32 cores)
+epochs: 40           # full passes over the dataset - from RynnVLA-002 original paper
+lr: 5e-6             # learning rate (first thing to adjust if not converging) from RynnVLA-002 original paper
+
+# LoRA
+lora_r: 16           # rank - higher = more capacity but more memory (8-64 typical)
+lora_alpha: 32       # scaling factor - usually 2x lora_r

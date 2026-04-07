@@ -88,6 +88,17 @@ torchcodec==0.10.0
 torchvision==0.25.0
 transformers>=4.47.0
 sentencepiece
+fairscale
+tensorboard
+tensorboard-data-server
+deepspeed
+timm
+bitsandbytes
+peft
+scipy
+scikit-learn
+ninja
+triton
 tqdm==4.67.3
 typer==0.24.1
 typing-inspect==0.9.0

@@ -25,45 +25,67 @@ Three files changed from the original:
 ## Full pipeline
 
 ```
-my_data/input_data/          (LeRobot v2.1 format — never modified)
-    ↓  Step 1 — preprocessing/convert_lerobot.py
+my_data/input_data/                     (LeRobot v2.1 format — never modified)
+    ↓  Step 1 — step1_convert_lerobot.py
 my_data/training_pipeline/training_data/
     TASK_NAME/episode_000000/
         front_image/image_0.png ...
         wrist_image/image_0.png ...
-        state/state_0.npy           shape (6,) joint positions
-        abs_action/action_0/        relative actions, gripper absolute
-            0.npy ... 19.npy        20 sub-actions per chunk
-    ↓  Step 2 — preprocessing/generate_conversations.py
+        state/state_0.npy               shape (6,) joint positions
+        abs_action/action_0/            relative actions, gripper absolute
+            0.npy ... 19.npy            20 sub-actions per chunk
+    ↓  Step 2 — step2_generate_conversations.py
 my_data/training_pipeline/conversations/
     libero_<task_label>_his_<his>_train_img_state_abs_ck_1_<resolution>.json
-    ↓  Step 3 — preprocessing/calculate_min_max_action.py + calculate_min_max_state.py
-min/max values → saved to my_data/training_pipeline/min_max_*.txt
-                 paste into RynnVLA-002/rynnvla-002/data_lerobot/item_processor.py
-    ↓  Step 4 — pretokenization
-tokens/vla_data/
+    ↓  Step 3 — step3_verify.py
+    ↓  Step 4 — step4_calculate_min_max.py
+my_data/training_pipeline/min_max_action.txt
+my_data/training_pipeline/min_max_state.txt
+    ↓  Step 5 — step5_pretokenize.py
+my_data/training_pipeline/tokens/vla_data/
     files/*.pkl
-    record.json
-    ↓  Step 5 — fine-tune
-trained checkpoint
-    ↓  Step 6 — inference on SO-101
+    ↓  Step 6 — step6_merge_records.py
+my_data/training_pipeline/tokens/vla_data/record.json
+    ↓  Step 7 — step7_update_train_config.py
+~/RynnVLA-002/rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_20_256_pretokenize.yaml
+    ↓  Fine-tune — finetune.py
+my_data/training_pipeline/fine_tuning/<task_label>_<robot>/
+    ↓  Inference on SO-101
+```
+
+---
+
+## Key Commands To Run
+
+```bash
+source models/rynnvla-002/run_scripts/setup.sh
+source models/rynnvla-002/run_scripts/preprocess.sh
+bash models/rynnvla-002/run_scripts/finetune.sh
 ```
 
 ---
 
 ## Config
 
-All preprocessing parameters live in `models/rynnvla-002/config.yaml`:
+All parameters live in `models/rynnvla-002/config.yaml`:
 
 ```yaml
 input_dir: my_data/input_data
 work_dir: my_data/training_pipeline
-task_label: screwdriver        # short label for output filenames
+task_label: screwdriver    # short label for output filenames
+robot: so101               # robot name — used in fine_tuning output folder
 
-chunk_size: 20                 # RynnVLA-002 default
-action_dim: 6                  # SO-101 has 6 joints
-resolution: 256                # VLA model uses 256x256
-his: 1                         # RynnVLA-002 default
+# Must be consistent across preprocessing, training, and inference
+chunk_size: 20             # sub-actions per chunk (lerobot default — must match time_horizon)
+action_dim: 6              # SO-101 has 6 joints
+resolution: 256            # VLA model uses 256x256
+his: 1                     # history length
+
+# Training — all from RynnVLA-002 original paper
+batch_size: 8              # reduce to 4 if OOM
+num_workers: 16            # CPU workers for data loading
+epochs: 40
+lr: 5e-6
 ```
 
 ---
@@ -84,7 +106,7 @@ Downloads to `~/RynnVLA-002/rynnvla-002/ckpts/`:
 
 ---
 
-## Steps 1–4 — Preprocessing
+## Steps 1–7 — Preprocessing
 
 ```bash
 source models/rynnvla-002/run_scripts/setup.sh
@@ -95,41 +117,51 @@ source models/rynnvla-002/run_scripts/preprocess.sh
 
 1. Convert LeRobot dataset → per-episode `training_data/` folders
 2. Generate conversation JSON from `training_data/`
-3. Calculate action and state min/max values → saved to `min_max_action.txt` / `min_max_state.txt`
-4. Pretokenize — converts every episode frame into a `.pkl` token file
+3. Verify outputs
+4. Calculate action and state min/max values → saved to `min_max_action.txt` / `min_max_state.txt`
+5. Pretokenize — converts every episode frame into a `.pkl` token file
+6. Merge per-worker records → `record.json`
+7. Update training config YAML with `record.json` path
 
 **What pretokenization does:** each frame is converted into a flat token sequence. Three things per frame:
 - **Images** — front + wrist frames run through VQ-GAN, compressed into discrete tokens (slow GPU step)
-- **Actions** — 6 joint movements bucketed into discrete bins, encoded as tokens
-- **States** — same for the 6 joint positions
+- **Actions** — joint movements bucketed into discrete bins, encoded as tokens
+- **States** — same for joint positions
 
-Workers split frames evenly and run in parallel (`num_gpus × 16` workers). Logs go to `tokens/vla_data/logs/worker_N.log`. Each worker uses ~1.15GB VRAM — 16 workers ≈ 18GB on a 32GB card. Estimated time on RTX 5090: ~30–45 min for a ~36k frame dataset (vs ~2.5hrs with 4 workers — GPU was only at 4% util so the bottleneck is CPU, not GPU, and scales near-linearly).
+Workers split frames evenly and run in parallel (`num_gpus × 16` workers). Logs go to `tokens/vla_data/logs/worker_N.log`. Each worker uses ~1.15GB VRAM — 16 workers ≈ 18GB on a 32GB card. Estimated time on RTX 5090: ~30–45 min for a ~36k frame dataset.
 
 ---
 
-## Step 5 — Fine-tune
-
-Update the data config YAML to point at your `record.json`:
-
-```
-RynnVLA-002/rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_20_256_pretokenize.yaml
-```
-
-Then run:
+## Fine-tune
 
 ```bash
-cd RynnVLA-002/rynnvla-002/exps_pretokenize
-bash libero_goal_his_2_third_view_wrist_w_state_5_256_abiw.sh
+source models/rynnvla-002/run_scripts/setup.sh
+bash models/rynnvla-002/run_scripts/finetune.sh
 ```
 
-Key training flags:
-- `--action_dim 6` — matches SO-101 (6 joints)
-- `--time_horizon 20` — 20 sub-actions per chunk
-- `--init_from ../ckpts/starting_point` — pretrained Chameleon 7B starting point
+This calls `models/rynnvla-002/fine_tuning/finetune.py`, which reads all parameters from `config.yaml` and launches torchrun.
+
+Checkpoint output: `$work_dir/fine_tuning/<task_label>_<robot>/`
+Training log: `$work_dir/fine_tuning/<task_label>_<robot>/output.log`
+
+**Key training flags:**
+
+| Flag | Value | Source |
+|---|---|---|
+| `--action_dim` | 6 | config.yaml — SO-101 has 6 joints |
+| `--time_horizon` | 20 | config.yaml — lerobot chunk size |
+| `--init_from` | `ckpts/starting_point` | pretrained RynnVLA-002 checkpoint |
+| `--epochs` | 40 | config.yaml |
+| `--lr` | 5e-6 | config.yaml |
+| `--batch_size` | 8 | config.yaml — reduce to 4 if OOM |
+| `--checkpointing` | enabled | saves VRAM by recomputing activations |
+| `--ckpt_max_keep` | 3 | keep last 3 checkpoints |
+
+If you get CUDA OOM at startup, reduce `batch_size` to 4 in `config.yaml` and rerun.
 
 ---
 
-## Step 6 — Inference on SO-101
+## Inference on SO-101
 
 ```python
 from rynnvla002 import Solver
