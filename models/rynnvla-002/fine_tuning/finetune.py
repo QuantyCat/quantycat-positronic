@@ -88,7 +88,7 @@ cmd = [
     "--unmask_image_logits",
     "--dropout", "0.08", #regularization during training - from RynnVLA-002 original paper [ 0.05 to 0.10 ]
     "--z_loss_weight", "1e-5", #small auxiliary loss to stabilize softmax - from RynnVLA-002 original paper
-    "--ckpt_max_keep", "3", # keep last 3 checkpoints.
+    "--ckpt_max_keep", "1", # keep only last checkpoint to save disk space (~14GB per checkpoint)
     "--lora_r", str(lora_r),         # from config.yaml
     "--lora_alpha", str(lora_alpha), # from config.yaml
 ]

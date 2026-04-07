@@ -13,7 +13,7 @@ his: 1               # (history) the LeRobot training config uses his_1, LIBERO 
 # Training
 batch_size: 2        # samples per GPU per step - reduced from 4 due to memory with direct CUDA load
 num_workers: 16      # CPU workers for data loading (machine has 32 cores)
-epochs: 40           # full passes over the dataset - from RynnVLA-002 original paper
+epochs: 15           # 15 epochs for ~50 demo dataset (40 was for larger datasets in original paper)
 lr: 5e-6             # learning rate (first thing to adjust if not converging) from RynnVLA-002 original paper
 
 # LoRA
