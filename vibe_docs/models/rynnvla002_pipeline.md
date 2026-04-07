@@ -82,7 +82,7 @@ resolution: 256            # VLA model uses 256x256
 his: 1                     # history length
 
 # Training — all from RynnVLA-002 original paper
-batch_size: 8              # reduce to 4 if OOM
+batch_size: 2              # reduce if OOM; 2 uses ~17GB on a 32GB card
 num_workers: 16            # CPU workers for data loading
 epochs: 40
 lr: 5e-6
@@ -153,11 +153,43 @@ Training log: `$work_dir/fine_tuning/<task_label>_<robot>/output.log`
 | `--init_from` | `ckpts/starting_point` | pretrained RynnVLA-002 checkpoint |
 | `--epochs` | 40 | config.yaml |
 | `--lr` | 5e-6 | config.yaml |
-| `--batch_size` | 8 | config.yaml — reduce to 4 if OOM |
+| `--batch_size` | 2 | config.yaml — reduce if OOM |
 | `--checkpointing` | enabled | saves VRAM by recomputing activations |
 | `--ckpt_max_keep` | 3 | keep last 3 checkpoints |
 
-If you get CUDA OOM at startup, reduce `batch_size` to 4 in `config.yaml` and rerun.
+If you get CUDA OOM at startup, reduce `batch_size` in `config.yaml` and rerun. With `batch_size: 2` the model uses ~17GB on a 32GB card.
+
+---
+
+## Single-GPU fixes (what we changed from the original repo)
+
+The original RynnVLA-002 training code was written for multi-GPU FSDP. Running it on a single GPU required several fixes — all in the forked repo at `~/RynnVLA-002/`.
+
+### Root cause: NaN loss on single GPU
+
+Training produced NaN loss from step 0. After extensive debugging the root cause was: HuggingFace `from_pretrained(..., device_map="cpu")` loads weights to CPU and attaches `AlignDevicesHook` dispatch hooks to every submodule. Moving the model to CUDA afterward with `.to()` does not cleanly remove these hooks, and the forward pass produces NaN in bf16. The fix is to load directly to CUDA with `device_map="cuda"` for single-GPU runs.
+
+### Changes made
+
+**`rynnvla-002/pretrain_solver_awm_w_ck_action_head.py`**
+
+- Load model with `device_map="cuda"` instead of `"cpu"` when `dp_world_size == 1` — avoids bf16 numerical instability from the CPU→CUDA load path
+- Fixed `add_lora_to_model` to initialize LoRA parameters with `device=module.weight.device` — when the base weights are already on CUDA, LoRA parameters must also be created on CUDA or the forward pass raises a device mismatch error
+
+**`xllmx/solvers/pretrain/pretrain_ck_action_head.py`**
+
+- Added `SingleGPUWrapper` class — a thin `nn.Module` that mimics the FSDP API (provides `no_sync()`, `clip_grad_norm_()`, and `__getattr__` delegation) so the rest of the training loop works unchanged
+- Modified `setup_fsdp_sync` to return `SingleGPUWrapper(model)` instead of an FSDP-wrapped model when `dp_world_size == 1`. Also calls `remove_hook_from_module(model, recurse=True)` to strip any accelerate dispatch hooks before wrapping.
+- Fixed 3 occurrences of `loss_weights = torch.ones(65536)` — missing `device=` argument caused the weight tensor to land on CPU, which then crashed `CrossEntropyLoss` with "weight is on cpu"
+
+**`xllmx/util/ckpt.py`**
+
+- Reworked the `save` function to skip `FSDP.state_dict_type()` context manager when the model is not an FSDP instance — that API requires an actual FSDP model and raises an error otherwise
+- Handled a HuggingFace `save_pretrained` bug in this transformers version where `_get_tied_weight_keys` calls `.keys()` on a list — fixed by temporarily setting `inner._tied_weights_keys = []` before calling `save_pretrained`, restoring it in a `finally` block
+
+### Training config changes
+
+- `batch_size: 2` — reduced from 8 (original paper) due to GPU memory. With direct CUDA load and gradient checkpointing, batch_size=4 OOMs at 31GB; batch_size=2 runs at ~17GB.
 
 ---
 
