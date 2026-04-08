@@ -13,9 +13,10 @@ his: 1               # (history) the LeRobot training config uses his_1, LIBERO 
 # Training
 batch_size: 2        # samples per GPU per step - reduced from 4 due to memory with direct CUDA load
 num_workers: 16      # CPU workers for data loading (machine has 32 cores)
-epochs: 15           # 15 epochs for ~50 demo dataset (40 was for larger datasets in original paper)
+epochs: 2           # 15 epochs for ~50 demo dataset (40 was for larger datasets in original paper)
 lr: 5e-6             # learning rate (first thing to adjust if not converging) from RynnVLA-002 original paper
 ckpt_max_keep: 3     # number of checkpoints to keep (~14GB each)
+save_interval: 2000  # save a checkpoint every N iterations (within an epoch)
 
 # LoRA
 lora_r: 16           # rank - higher = more capacity but more memory (8-64 typical)

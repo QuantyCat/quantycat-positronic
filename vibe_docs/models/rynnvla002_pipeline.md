@@ -134,10 +134,15 @@ Workers split frames evenly and run in parallel (`num_gpus × 16` workers). Logs
 
 ## Fine-tune
 
+Run in a tmux session so it keeps going if you disconnect:
+
 ```bash
+tmux new -s train
 source models/rynnvla-002/run_scripts/setup.sh
 bash models/rynnvla-002/run_scripts/finetune.sh
 ```
+
+Detach with `Ctrl+B` then `D`. Reattach later with `tmux attach -t train`.
 
 This calls `models/rynnvla-002/fine_tuning/finetune.py`, which reads all parameters from `config.yaml` and launches torchrun.
 
@@ -175,6 +180,7 @@ Training produced NaN loss from step 0. After extensive debugging the root cause
 
 - Load model with `device_map="cuda"` instead of `"cpu"` when `dp_world_size == 1` — avoids bf16 numerical instability from the CPU→CUDA load path
 - Fixed `add_lora_to_model` to initialize LoRA parameters with `device=module.weight.device` — when the base weights are already on CUDA, LoRA parameters must also be created on CUDA or the forward pass raises a device mismatch error
+- Unfroze `lm_head` in `add_lora_to_model` — the starting checkpoint zeros out `lm_head.weight` rows for action tokens (3:8195). With `lm_head` frozen, those rows stay zero throughout training, producing uniform logits for all action token predictions and pinning `closs` at `ln(65536) = 11.09` regardless of how many epochs run. Fix: added `"lm_head" in name` to the `requires_grad` condition so the output projection trains alongside LoRA and the action head.
 
 **`xllmx/solvers/pretrain/pretrain_ck_action_head.py`**
 
