@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""
+RynnVLA-002 closed-loop inference on SO-101 via LeRobot.
+
+Requires:
+  - This repo's conda env (lerobot, torch, etc.): source models/rynnvla-002/run_scripts/setup.sh
+  - QuantyCat fork of RynnVLA-002 on PYTHONPATH or installed, e.g.:
+      export PYTHONPATH="$HOME/RynnVLA-002/rynnvla-002:$PYTHONPATH"
+
+Run from repository root:
+
+  python3 models/rynnvla-002/inference/inference.py \\
+    --checkpoint /path/to/fine_tuning/run_or_ckpt \\
+    --prompt "Put the screwdriver into the cup" \\
+    --robot-port /dev/ttyUSB0 \\
+    --robot-id so101_follower
+
+Default checkpoint: if you pass --from-config-checkpoint, resolves
+  <work_dir>/fine_tuning/<task_label>_<robot>/
+from models/rynnvla-002/config.yaml (use the directory that contains your saved solver ckpt).
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import yaml
+
+# Joint order must match LeRobot dataset `observation.state` for SO-101 follower demos.
+_MOTOR_NAMES: tuple[str, ...] = (
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper",
+)
+
+_DEFAULT_CONFIG = "models/rynnvla-002/config.yaml"
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _load_positronic_config(config_path: Path) -> dict[str, Any]:
+    if not config_path.is_file():
+        raise FileNotFoundError(f"config not found: {config_path}")
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
+def _resolve_checkpoint(args: argparse.Namespace, cfg: dict[str, Any], root: Path) -> Path:
+    if args.checkpoint:
+        return Path(args.checkpoint).expanduser().resolve()
+    if args.from_config_checkpoint:
+        work_dir = Path(cfg["work_dir"])
+        if not work_dir.is_absolute():
+            work_dir = (root / work_dir).resolve()
+        sub = f"{cfg['task_label']}_{cfg['robot']}"
+        p = (work_dir / "fine_tuning" / sub).resolve()
+        if not p.is_dir():
+            raise FileNotFoundError(
+                f"Expected fine-tuning output directory at {p} — train first or pass --checkpoint"
+            )
+        return p
+    raise ValueError("Pass --checkpoint PATH or --from-config-checkpoint")
+
+
+def _ensure_rynnvla_on_path(extra: str | None) -> None:
+    if extra:
+        p = Path(extra).expanduser().resolve()
+        if p.is_dir():
+            sys.path.insert(0, str(p))
+
+
+def _obs_to_solver_inputs(
+    obs: dict[str, Any],
+    front_key: str,
+    wrist_key: str,
+) -> tuple[Any, Any, np.ndarray]:
+    if front_key not in obs or wrist_key not in obs:
+        raise KeyError(
+            f"Observation missing camera keys {front_key!r} / {wrist_key!r}; "
+            f"got: {sorted(obs.keys())}"
+        )
+    front = np.asarray(obs[front_key])
+    wrist = np.asarray(obs[wrist_key])
+    state = np.array([float(obs[f"{m}.pos"]) for m in _MOTOR_NAMES], dtype=np.float32)
+    return front, wrist, state
+
+
+def _action_vector_to_robot_dict(vec: np.ndarray) -> dict[str, float]:
+    v = np.asarray(vec, dtype=np.float64).reshape(-1)
+    if v.size != len(_MOTOR_NAMES):
+        raise ValueError(
+            f"Expected action length {len(_MOTOR_NAMES)}, got {v.size} "
+            f"(shape {getattr(vec, 'shape', None)})"
+        )
+    return {f"{m}.pos": float(v[i]) for i, m in enumerate(_MOTOR_NAMES)}
+
+
+def _normalize_solver_action(action: Any) -> dict[str, float]:
+    if isinstance(action, dict):
+        return action
+    arr = np.asarray(action)
+    if arr.ndim == 2:
+        arr = arr[0]
+    return _action_vector_to_robot_dict(arr)
+
+
+def _make_robot(args: argparse.Namespace):
+    from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig
+    from lerobot.robots.so_follower.config_so_follower import SO101FollowerConfig
+    from lerobot.robots.utils import make_robot_from_config
+
+    cameras = {
+        args.front_camera_key: OpenCVCameraConfig(
+            index_or_path=args.front_camera_index,
+            fps=args.camera_fps,
+            width=args.camera_width,
+            height=args.camera_height,
+        ),
+        args.wrist_camera_key: OpenCVCameraConfig(
+            index_or_path=args.wrist_camera_index,
+            fps=args.camera_fps,
+            width=args.camera_width,
+            height=args.camera_height,
+        ),
+    }
+    cfg = SO101FollowerConfig(
+        port=args.robot_port,
+        id=args.robot_id,
+        cameras=cameras,
+    )
+    return make_robot_from_config(cfg)
+
+
+def main() -> None:
+    root = _repo_root()
+    os.chdir(root)
+
+    parser = argparse.ArgumentParser(description="RynnVLA-002 inference on SO-101 (LeRobot).")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Path to finetuned checkpoint directory (or resume_path your Solver expects).",
+    )
+    parser.add_argument(
+        "--from-config-checkpoint",
+        action="store_true",
+        help=f"Use work_dir/fine_tuning/<task_label>_<robot> from {_DEFAULT_CONFIG}",
+    )
+    parser.add_argument(
+        "--positronic-config",
+        type=str,
+        default=_DEFAULT_CONFIG,
+        help="Path to quantycat positronic models/rynnvla-002/config.yaml",
+    )
+    parser.add_argument(
+        "--rynnvla-repo",
+        type=str,
+        default=os.environ.get("RYNNVLA_REPO", ""),
+        help="If set, prepend this directory to sys.path (e.g. ~/RynnVLA-002/rynnvla-002)",
+    )
+    parser.add_argument("--prompt", type=str, required=True, help="Language instruction for the policy.")
+    parser.add_argument("--robot-port", type=str, required=True, help="Serial port for SO-101 follower.")
+    parser.add_argument("--robot-id", type=str, default="so101_follower", help="Calibration id on disk.")
+    parser.add_argument("--front-camera-index", type=int, default=1)
+    parser.add_argument("--wrist-camera-index", type=int, default=0)
+    parser.add_argument("--front-camera-key", type=str, default="front")
+    parser.add_argument("--wrist-camera-key", type=str, default="wrist")
+    parser.add_argument("--camera-width", type=int, default=640)
+    parser.add_argument("--camera-height", type=int, default=360)
+    parser.add_argument("--camera-fps", type=int, default=30)
+    parser.add_argument(
+        "--control-period-s",
+        type=float,
+        default=0.05,
+        help="Sleep between steps (0 = as fast as possible).",
+    )
+    parser.add_argument("--max-steps", type=int, default=0, help="Stop after N steps (0 = forever).")
+    args = parser.parse_args()
+
+    cfg_path = Path(args.positronic_config)
+    if not cfg_path.is_absolute():
+        cfg_path = (root / cfg_path).resolve()
+    positronic_cfg = _load_positronic_config(cfg_path)
+    ckpt_path = _resolve_checkpoint(args, positronic_cfg, root)
+
+    _ensure_rynnvla_on_path(args.rynnvla_repo.strip() or None)
+
+    try:
+        from rynnvla002 import Solver
+    except ImportError as e:
+        raise SystemExit(
+            "Import failed: rynnvla002.Solver\n"
+            "Add the QuantyCat RynnVLA-002 python root to PYTHONPATH, e.g.:\n"
+            "  export PYTHONPATH=\"$HOME/RynnVLA-002/rynnvla-002:$PYTHONPATH\"\n"
+            "Or pass --rynnvla-repo pointing at that directory.\n"
+            f"Original error: {e}"
+        ) from e
+
+    print(f"Loading Solver from {ckpt_path} …")
+    solver = Solver(resume_path=str(ckpt_path))
+    robot = _make_robot(args)
+
+    step = 0
+    try:
+        robot.connect(calibrate=True)
+        print("Robot connected. Running control loop (Ctrl+C to stop).")
+        while True:
+            obs = robot.get_observation()
+            front, wrist, state = _obs_to_solver_inputs(
+                obs, args.front_camera_key, args.wrist_camera_key
+            )
+            action = solver.get_action_wrist_action_head_state(
+                front_image=front,
+                wrist_image=wrist,
+                state=state,
+                prompt=args.prompt,
+            )
+            cmd = _normalize_solver_action(action)
+            robot.send_action(cmd)
+            step += 1
+            if args.max_steps and step >= args.max_steps:
+                break
+            if args.control_period_s > 0:
+                time.sleep(args.control_period_s)
+    except KeyboardInterrupt:
+        print("\nStopped by user.")
+    finally:
+        if robot.is_connected:
+            robot.disconnect()
+
+
+if __name__ == "__main__":
+    main()
