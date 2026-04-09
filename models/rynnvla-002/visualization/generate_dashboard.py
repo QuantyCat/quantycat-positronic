@@ -477,7 +477,7 @@ function classifyLine(l) {
 }
 
 function renderLogs(lines, hl) {
-  const re = hl ? new RegExp(hl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi') : null;
+  const re = hl ? new RegExp(hl.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'), 'gi') : null;
   const chunks = lines.map(l => {
     const cls = classifyLine(l);
     const esc = l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
