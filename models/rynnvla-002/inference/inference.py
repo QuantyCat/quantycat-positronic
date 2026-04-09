@@ -187,6 +187,7 @@ def main() -> None:
         help="Sleep between steps (0 = as fast as possible).",
     )
     parser.add_argument("--max-steps", type=int, default=0, help="Stop after N steps (0 = forever).")
+    parser.add_argument("--gpu", type=int, default=0, help="CUDA device index.")
     args = parser.parse_args()
 
     cfg_path = Path(args.positronic_config)
@@ -198,18 +199,34 @@ def main() -> None:
     _ensure_rynnvla_on_path(args.rynnvla_repo.strip() or None)
 
     try:
-        from rynnvla002 import Solver
+        from eval_solver_lerobot_action_head_state import Solver
     except ImportError as e:
         raise SystemExit(
-            "Import failed: rynnvla002.Solver\n"
+            "Import failed: eval_solver_lerobot_action_head_state.Solver\n"
             "Add the QuantyCat RynnVLA-002 python root to PYTHONPATH, e.g.:\n"
             "  export PYTHONPATH=\"$HOME/RynnVLA-002/rynnvla-002:$PYTHONPATH\"\n"
             "Or pass --rynnvla-repo pointing at that directory.\n"
             f"Original error: {e}"
         ) from e
 
+    import argparse as _argparse
+    his_val = positronic_cfg.get("his", 1)
+    solver_args = _argparse.Namespace(
+        resume_path=str(ckpt_path),
+        output_dir=str(ckpt_path / "inference_logs"),
+        device=args.gpu,
+        action_dim=positronic_cfg.get("action_dim", 6),
+        time_horizon=positronic_cfg.get("time_horizon", 5),
+        max_seq_len=4096,
+        mask_image_logits=True,
+        dropout=0.0,
+        z_loss_weight=0.0,
+        his=f"{his_val}h_1a",
+        action_steps=25,
+    )
+
     print(f"Loading Solver from {ckpt_path} …")
-    solver = Solver(resume_path=str(ckpt_path))
+    solver = Solver(solver_args)
     robot = _make_robot(args)
 
     step = 0
