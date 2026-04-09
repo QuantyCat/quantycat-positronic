@@ -566,7 +566,7 @@ def main():
     work_dir        = cfg.get("work_dir", "my_data/training_pipeline")
     task_label      = cfg.get("task_label", "")
     robot           = cfg.get("robot", "")
-    training_output = cfg.get("training_output", "training_data")
+    training_output = cfg.get("training_output", "training_output")
 
     run_name_default = f"{task_label}_{robot}" if (task_label and robot) else None
     default_run_dir  = f"{work_dir}/fine_tuning/{run_name_default}" if run_name_default else None

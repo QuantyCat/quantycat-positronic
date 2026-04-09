@@ -2,10 +2,11 @@
 """
 Monitor and log CPU, RAM, and GPU usage to CSV while training runs.
 
+Output path is read from config.yaml by default (<training_output>/<task>_<robot>/resources.csv).
+
 Usage:
     # Start monitor in background before launching training:
-    python visualization/resource_monitor.py \\
-        --output training_output/my_run/resources.csv &
+    bash run_scripts/resource_monitor.sh &
     MONITOR_PID=$!
 
     # ... run training ...
@@ -14,7 +15,7 @@ Usage:
     kill $MONITOR_PID
 
 Options:
-    --output    Path to output CSV (required)
+    --output    Path to output CSV (default: from config.yaml)
     --interval  Sampling interval in seconds (default: 5)
     --gpu       GPU index to monitor (default: 0)
 
@@ -35,6 +36,8 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+import yaml
 
 
 # ── Dependency checks ─────────────────────────────────────────────────────────
@@ -115,9 +118,25 @@ def _handle_signal(sig, frame):
     _running = False
 
 
+def load_config() -> dict:
+    config_path = Path(__file__).parent.parent / "config.yaml"
+    if not config_path.exists():
+        return {}
+    with open(config_path) as f:
+        return yaml.safe_load(f) or {}
+
+
 def main():
+    cfg = load_config()
+    training_output = cfg.get("training_output", "training_output")
+    task_label      = cfg.get("task_label", "")
+    robot           = cfg.get("robot", "")
+    run_name        = f"{task_label}_{robot}" if (task_label and robot) else "run"
+    default_output  = f"{training_output}/{run_name}/resources.csv"
+
     parser = argparse.ArgumentParser(description="Log system resource usage to CSV")
-    parser.add_argument("--output",   required=True, help="Output CSV path")
+    parser.add_argument("--output",   default=default_output,
+                        help=f"Output CSV path (default from config: {default_output})")
     parser.add_argument("--interval", type=float, default=5.0,
                         help="Sampling interval in seconds (default: 5)")
     parser.add_argument("--gpu",      type=int,   default=0,

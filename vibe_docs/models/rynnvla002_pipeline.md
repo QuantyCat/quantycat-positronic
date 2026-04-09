@@ -199,6 +199,79 @@ Training produced NaN loss from step 0. After extensive debugging the root cause
 
 ---
 
+## Visualization
+
+### Training dashboard
+
+After a fine-tuning run completes, generate a self-contained HTML dashboard:
+
+```bash
+source models/rynnvla-002/run_scripts/setup.sh
+bash models/rynnvla-002/run_scripts/visualization.sh
+```
+
+Output: `<training_output>/<task_label>_<robot>/dashboard.html`
+
+Open in a browser. If on a remote machine, serve it:
+
+```bash
+cd <training_output>/screwdriver_so101
+python3 -m http.server 8080
+# then open http://<machine-ip>:8080/dashboard.html
+```
+
+**Training Metrics tab** — one chart per metric, x-axis is global step across all epochs. Vertical dotted lines mark epoch boundaries.
+
+| Metric | What it means | What to look for |
+|---|---|---|
+| **closs** | Main loss — how wrong the action predictions are | Should decrease steadily. If it plateaus early, try more epochs or a higher lr. If it diverges or goes NaN, reduce lr. |
+| **loss_ct** | Contrastive loss — quality of visual/state representations | Should decrease alongside closs, usually faster |
+| **z_loss** | Entropy regularization — prevents codebook collapse | Should stay small and flat. A spike means the token distribution is collapsing — rare but bad. |
+| **grad_norm** | Magnitude of gradients before clipping (clip at 4.0) | Should be noisy but bounded. Sustained values at the clip limit (4.0) means the model is struggling. Early training will be high. |
+| **lr** | Learning rate over time | Flat after warmup for this config (warmup_epochs=0.01) |
+| **dataload_s** | Time spent loading data per step | Should be low and flat. A spike means a disk or CPU bottleneck — increase `num_workers` in config. |
+| **update_s** | Time spent on the forward/backward pass per step | Should be flat. A growing trend means memory pressure. |
+| **samples/sec** | Training throughput | Higher is better. Dips early (GPU warming up) then stabilizes. |
+
+**Timeline tab** — training progress vs wall time. Shows how fast steps accumulated and where checkpoints were saved/deleted.
+
+**Raw Logs tab** — filterable log viewer showing everything except the per-step lines (those are in the charts). Useful for checking warnings, checkpoint events, and epoch summaries.
+
+---
+
+### Resource monitor
+
+Captures CPU%, RAM, GPU compute%, and GPU memory at 5-second intervals during training. Produces a CSV for later analysis (resource page coming to the dashboard).
+
+**Workflow — run alongside training:**
+
+```bash
+tmux new -s train
+source models/rynnvla-002/run_scripts/setup.sh
+
+bash models/rynnvla-002/run_scripts/resource_monitor.sh &
+MONITOR_PID=$!
+
+bash models/rynnvla-002/run_scripts/finetune.sh
+
+kill $MONITOR_PID
+```
+
+`$!` captures the PID of the background monitor so it can be stopped cleanly when training ends.
+
+Output: `<training_output>/<task_label>_<robot>/resources.csv`
+
+**What it captures:**
+
+| Column | What it means | What to look for |
+|---|---|---|
+| `cpu_percent` | Overall CPU utilization | Should be moderate during data loading. Very low means workers are starved; very high means a CPU bottleneck. |
+| `ram_used_gb` | System RAM in use | Should be stable. Creeping upward over time is a memory leak. |
+| `gpu_util_percent` | GPU compute utilization | Should be close to 100% during the update step. Low GPU utilization means the GPU is waiting on data loading — increase `num_workers`. |
+| `gpu_mem_used_mb` | GPU VRAM in use | Should be flat after the first few steps. Gradual increase is a VRAM leak. |
+
+---
+
 ## Inference on SO-101
 
 ```python
