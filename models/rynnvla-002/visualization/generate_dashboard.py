@@ -132,99 +132,219 @@ HTML_TEMPLATE = """\
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: #0d1117;
-    color: #e6edf3;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background:
+      linear-gradient(180deg, #f5f5f7 0%, #eef1f5 100%);
+    color: #111827;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
     font-size: 14px;
+    min-height: 100vh;
   }
 
   /* ── Header ── */
   header {
-    background: #161b22;
-    border-bottom: 1px solid #30363d;
-    padding: 14px 24px;
+    margin: 18px 18px 0;
+    padding: 20px 24px;
     display: flex;
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: #ffffff;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+    border-radius: 24px;
   }
-  header h1 { font-size: 16px; font-weight: 600; color: #8b949e; letter-spacing: 0.02em; }
-  .run-name { font-size: 16px; font-weight: 700; color: #58a6ff; }
+  header h1 { font-size: 13px; font-weight: 600; color: #6b7280; letter-spacing: 0.08em; text-transform: uppercase; }
+  .run-name { font-size: 28px; font-weight: 700; color: #0f172a; letter-spacing: -0.03em; }
   .run-meta { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
-  .run-meta span { font-size: 12px; color: #8b949e; }
-  .run-meta strong { color: #e6edf3; }
+  .run-meta span {
+    font-size: 12px;
+    color: #6b7280;
+    background: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 999px;
+    padding: 8px 12px;
+  }
+  .run-meta strong { color: #0f172a; }
 
   /* ── Tabs ── */
   nav {
-    background: #161b22;
-    border-bottom: 1px solid #30363d;
-    padding: 0 24px;
+    margin: 14px 18px 0;
+    padding: 8px;
     display: flex;
+    gap: 6px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: #f0f3f7;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    border-radius: 20px;
   }
   nav button {
-    background: none;
+    background: transparent;
     border: none;
-    border-bottom: 2px solid transparent;
-    color: #8b949e;
+    border-radius: 14px;
+    color: #6b7280;
     cursor: pointer;
-    font-size: 14px;
-    padding: 12px 16px;
-    transition: color 0.15s, border-color 0.15s;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 16px;
+    transition: color 0.18s, background 0.18s, box-shadow 0.18s;
   }
-  nav button:hover { color: #e6edf3; }
-  nav button.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+  nav button:hover { color: #0f172a; background: rgba(255, 255, 255, 0.72); }
+  nav button.active {
+    color: #0f172a;
+    background: #ffffff;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  }
 
   /* ── Tab content ── */
-  .tab { display: none; padding: 20px 24px; }
+  .tab { display: none; padding: 18px; }
   .tab.active { display: block; }
 
   /* ── Chart grid ── */
   .chart-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    gap: 18px;
   }
   .chart-card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    border-radius: 26px;
   }
   .chart-card.full { grid-column: 1 / -1; }
-  .chart-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: #8b949e;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 10px 14px 2px;
+  .chart-card.primary {
+    background:
+      linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   }
-  .chart-plot      { width: 100%; height: 200px; }
-  .chart-plot.tall { width: 100%; height: 260px; }
+  .chart-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px 0;
+  }
+  .chart-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .chart-title {
+    font-size: 18px;
+    font-weight: 650;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .chart-note {
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.45;
+    padding: 8px 20px 0;
+    max-width: 72ch;
+  }
+  .chart-summary {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 14px 20px 0;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 18px;
+  }
+  .summary-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .summary-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.04em;
+  }
+  .summary-delta {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2563eb;
+  }
+  .info-wrap { position: relative; flex-shrink: 0; }
+  .info-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.16);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .info-tip {
+    position: absolute;
+    top: 32px;
+    right: 0;
+    width: min(320px, calc(100vw - 48px));
+    padding: 12px 14px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #f8fafc;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.28);
+    font-size: 12px;
+    line-height: 1.5;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-4px);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    z-index: 9999;
+    white-space: normal;
+  }
+  .info-tip strong { color: #ffffff; }
+  .info-wrap:hover .info-tip,
+  .info-wrap:focus-within .info-tip {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+  .chart-plot      { width: 100%; height: 236px; }
+  .chart-plot.tall { width: 100%; height: 320px; }
 
   /* ── Timeline ── */
-  #timeline-chart { width: 100%; height: calc(100vh - 180px); min-height: 400px; }
+  #timeline-chart {
+    width: 100%;
+    height: calc(100vh - 220px);
+    min-height: 420px;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 26px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  }
 
   /* ── Raw logs ── */
   .log-toolbar { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; }
   #log-search {
-    background: #0d1117;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    color: #e6edf3;
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 14px;
+    color: #0f172a;
     font-size: 13px;
-    padding: 7px 12px;
+    padding: 10px 14px;
     width: 320px;
   }
-  #log-search:focus { border-color: #58a6ff; outline: none; }
-  #log-count { font-size: 12px; color: #8b949e; }
+  #log-search:focus { border-color: rgba(59, 130, 246, 0.5); outline: none; }
+  #log-count { font-size: 12px; color: #64748b; }
   #log-viewer {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 26px;
     padding: 14px 16px;
     height: calc(100vh - 230px);
     overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
   }
   pre#log-content {
     font-family: 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
@@ -233,12 +353,42 @@ HTML_TEMPLATE = """\
     white-space: pre-wrap;
     word-break: break-all;
   }
-  .ll-warn  { color: #d29922; }
-  .ll-error { color: #f85149; }
-  .ll-epoch { color: #58a6ff; font-weight: 600; }
-  .ll-ckpt  { color: #3fb950; }
-  .ll-info  { color: #8b949e; }
-  mark { background: #388bfd33; color: #e6edf3; border-radius: 2px; }
+  .ll-warn  { color: #b45309; }
+  .ll-error { color: #dc2626; }
+  .ll-epoch { color: #2563eb; font-weight: 600; }
+  .ll-ckpt  { color: #059669; }
+  .ll-info  { color: #475569; }
+  mark { background: rgba(96, 165, 250, 0.22); color: #0f172a; border-radius: 4px; }
+
+  @media (max-width: 900px) {
+    .chart-grid { grid-template-columns: 1fr; }
+    .run-meta { margin-left: 0; }
+    .chart-card.full { grid-column: auto; }
+    .summary-value { font-size: 24px; }
+  }
+
+  @media (max-width: 640px) {
+    .chart-header {
+      align-items: center;
+    }
+    .chart-title {
+      font-size: 17px;
+    }
+    .info-tip {
+      position: fixed;
+      top: auto;
+      left: 24px;
+      right: 24px;
+      bottom: 24px;
+      width: auto;
+      max-width: none;
+      transform: translateY(8px);
+    }
+    .info-wrap:hover .info-tip,
+    .info-wrap:focus-within .info-tip {
+      transform: translateY(0);
+    }
+  }
 </style>
 </head>
 <body>
@@ -262,34 +412,104 @@ HTML_TEMPLATE = """\
 <div id="training" class="tab active">
   <div class="chart-grid">
 
-    <div class="chart-card full">
-      <div class="chart-title">Loss — closs · loss_ct · z_loss</div>
+    <div class="chart-card full primary">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title-wrap">
+            <div class="chart-title">Loss</div>
+            <div class="info-wrap">
+              <button class="info-btn" type="button" aria-label="Loss info">i</button>
+              <div class="info-tip">
+                <strong>closs</strong> — the main training loss. Measures how accurately the model predicts actions. Lower is better; a steady downward trend means training is working.<br><br>
+                <strong>loss_ct</strong> — contrastive loss. Pushes the model to learn consistent representations across similar situations. Should also decrease over time alongside closs.<br><br>
+                <strong>z_loss</strong> — auxiliary regularization loss (plotted on the right-hand axis — different scale). Keeps internal activations from growing unbounded. Usually small; large spikes can signal instability.<br><br>
+                If any of these stall or spike, check Gradient Norm and Learning Rate next.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-summary">
+        <span class="summary-label">Loss</span>
+        <span class="summary-value" id="loss-latest">--</span>
+        <span class="summary-delta" id="loss-delta"></span>
+      </div>
       <div class="chart-plot tall" id="chart-loss"></div>
     </div>
 
     <div class="chart-card">
-      <div class="chart-title">Gradient Norm</div>
+      <div class="chart-header">
+        <div>
+          <div class="chart-title-wrap">
+            <div class="chart-title">Gradient Norm</div>
+            <div class="info-wrap">
+              <button class="info-btn" type="button" aria-label="Gradient norm info">i</button>
+              <div class="info-tip"><strong>What it is:</strong> the size of your parameter updates. <strong>What to look for:</strong> sudden spikes suggest exploding gradients; values collapsing toward zero suggest vanishing gradients. Either can quietly break training.</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="chart-plot" id="chart-gradnorm"></div>
     </div>
 
     <div class="chart-card">
-      <div class="chart-title">Learning Rate</div>
+      <div class="chart-header">
+        <div>
+          <div class="chart-title-wrap">
+            <div class="chart-title">Learning Rate</div>
+            <div class="info-wrap">
+              <button class="info-btn" type="button" aria-label="Learning rate info">i</button>
+              <div class="info-tip"><strong>What it is:</strong> the step size chosen by the optimizer. <strong>What to look for:</strong> use it to explain the other charts. A flat loss means very different things under a tiny LR versus an aggressive schedule.</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="chart-plot" id="chart-lr"></div>
     </div>
 
     <div class="chart-card">
-      <div class="chart-title">Dataload Time (s / step)</div>
-      <div class="chart-plot" id="chart-dataload"></div>
+      <div class="chart-header">
+        <div>
+          <div class="chart-title-wrap">
+            <div class="chart-title">Throughput</div>
+            <div class="info-wrap">
+              <button class="info-btn" type="button" aria-label="Throughput info">i</button>
+              <div class="info-tip"><strong>What it is:</strong> samples processed per second. <strong>What to look for:</strong> higher and stable is better. If it is low, you are burning GPU time no matter how good the loss looks.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-plot" id="chart-samples"></div>
     </div>
 
     <div class="chart-card">
-      <div class="chart-title">Update Time (s / step)</div>
+      <div class="chart-header">
+        <div>
+          <div class="chart-title-wrap">
+            <div class="chart-title">Update Time</div>
+            <div class="info-wrap">
+              <button class="info-btn" type="button" aria-label="Update time info">i</button>
+              <div class="info-tip"><strong>What it is:</strong> time spent doing the actual training update each step. <strong>What to look for:</strong> compare it with dataload time to separate compute bottlenecks from input pipeline problems.</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="chart-plot" id="chart-update"></div>
     </div>
 
     <div class="chart-card full">
-      <div class="chart-title">Throughput (samples / sec)</div>
-      <div class="chart-plot" id="chart-samples"></div>
+      <div class="chart-header">
+        <div>
+          <div class="chart-title-wrap">
+            <div class="chart-title">Dataload Time</div>
+            <div class="info-wrap">
+              <button class="info-btn" type="button" aria-label="Dataload time info">i</button>
+              <div class="info-tip"><strong>What it is:</strong> time spent fetching and preparing each batch. <strong>What to look for:</strong> it is usually boring, until it is not. Spikes or drift here mean the data pipeline is now the urgent problem.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-plot" id="chart-dataload"></div>
     </div>
 
   </div>
@@ -322,21 +542,21 @@ function showTab(id, btn) {
 
 // ── Shared Plotly config ──────────────────────────────────────────────────────
 const BASE_LAYOUT = {
-  paper_bgcolor: '#161b22',
-  plot_bgcolor:  '#0d1117',
-  font: { color: '#e6edf3', family: "-apple-system, sans-serif", size: 11 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor:  'rgba(255,255,255,0)',
+  font: { color: '#0f172a', family: "-apple-system, BlinkMacSystemFont, sans-serif", size: 11 },
   xaxis: {
-    gridcolor: '#21262d', zerolinecolor: '#30363d',
+    gridcolor: 'rgba(148, 163, 184, 0.18)', zerolinecolor: 'rgba(148, 163, 184, 0.22)',
     title: { text: 'Step', font: { size: 11 } },
-    tickfont: { size: 10 },
+    tickfont: { size: 10, color: '#64748b' },
   },
   yaxis: {
-    gridcolor: '#21262d', zerolinecolor: '#30363d',
-    tickfont: { size: 10 },
+    gridcolor: 'rgba(148, 163, 184, 0.18)', zerolinecolor: 'rgba(148, 163, 184, 0.22)',
+    tickfont: { size: 10, color: '#64748b' },
   },
-  margin: { t: 10, b: 46, l: 58, r: 16 },
+  margin: { t: 10, b: 54, l: 58, r: 20 },
   hovermode: 'x unified',
-  hoverlabel: { bgcolor: '#1c2128', bordercolor: '#30363d', font: { size: 11 } },
+  hoverlabel: { bgcolor: '#ffffff', bordercolor: 'rgba(148, 163, 184, 0.32)', font: { size: 11, color: '#0f172a' } },
 };
 
 const CFG = { responsive: true, displayModeBar: false };
@@ -353,7 +573,7 @@ function epochShapes() {
       shapes.push({
         type: 'line', xref: 'x', yref: 'paper',
         x0: xs[i], x1: xs[i], y0: 0, y1: 1,
-        line: { color: '#30363d', width: 1, dash: 'dot' },
+        line: { color: 'rgba(148, 163, 184, 0.26)', width: 1, dash: 'dot' },
       });
       prev = s.epoch[i];
     }
@@ -368,46 +588,82 @@ function mkLayout(overrides) {
 
 function line(y, color, name) {
   return { x: xs, y, name: name || '', type: 'scatter', mode: 'lines',
-           line: { color, width: 1.5 }, hovertemplate: '%{y:.4f}<extra>' + (name||'') + '</extra>' };
+           line: { color, width: 2.2, shape: 'spline', smoothing: 0.55 },
+           hovertemplate: '%{y:.4f}<extra>' + (name||'') + '</extra>' };
+}
+
+function finiteValues(values) {
+  return (values || []).filter(v => Number.isFinite(v));
+}
+
+function latestValue(values) {
+  const vals = finiteValues(values);
+  return vals.length ? vals[vals.length - 1] : null;
+}
+
+function firstValue(values) {
+  const vals = finiteValues(values);
+  return vals.length ? vals[0] : null;
+}
+
+function updateLossSummary() {
+  const latest = latestValue(s.closs);
+  const start = firstValue(s.closs);
+  document.getElementById('loss-latest').textContent =
+    latest == null ? '--' : latest.toFixed(4);
+
+  const deltaNode = document.getElementById('loss-delta');
+  if (latest == null || start == null) {
+    deltaNode.textContent = '';
+    return;
+  }
+
+  const delta = latest - start;
+  const improved = delta < 0;
+  const arrow = improved ? '↓' : '↑';
+  deltaNode.textContent = arrow + ' ' + Math.abs(delta).toFixed(4) + ' since start (' + (improved ? 'improving' : 'worsening') + ')';
+  deltaNode.style.color = improved ? '#059669' : '#dc2626';
 }
 
 // ── Training charts ───────────────────────────────────────────────────────────
 function renderTraining() {
   // Loss — closs on left y, loss_ct on left y, z_loss on right y (very different scale)
   Plotly.newPlot('chart-loss', [
-    line(s.closs,    '#58a6ff', 'closs'),
-    line(s.loss_ct,  '#3fb950', 'loss_ct'),
-    Object.assign(line(s.z_loss, '#d29922', 'z_loss'), { yaxis: 'y2' }),
+    line(s.closs,    '#2563eb', 'closs'),
+    line(s.loss_ct,  '#0f766e', 'loss_ct'),
+    Object.assign(line(s.z_loss, '#f59e0b', 'z_loss'), { yaxis: 'y2' }),
   ], mkLayout({
     showlegend: true,
-    legend: { orientation: 'h', x: 0, y: 1.12, bgcolor: 'transparent', font: { size: 11 } },
+    legend: { orientation: 'h', x: 0, y: 1.14, bgcolor: 'transparent', font: { size: 11, color: '#475569' } },
     yaxis2: {
       overlaying: 'y', side: 'right',
-      gridcolor: '#21262d', tickfont: { size: 10 }, zerolinecolor: '#30363d',
-      title: { text: 'z_loss', font: { size: 10, color: '#d29922' } },
+      gridcolor: 'rgba(148, 163, 184, 0.18)', tickfont: { size: 10, color: '#64748b' }, zerolinecolor: 'rgba(148, 163, 184, 0.22)',
+      title: { text: 'z_loss', font: { size: 10, color: '#b45309' } },
     },
-    margin: { t: 36, b: 46, l: 58, r: 60 },
+    margin: { t: 44, b: 54, l: 58, r: 60 },
   }), CFG);
 
   Plotly.newPlot('chart-gradnorm',
-    [line(s.grad_norm,   '#f85149', 'grad_norm')],
+    [line(s.grad_norm,   '#ef4444', 'grad_norm')],
     mkLayout(), CFG);
 
   Plotly.newPlot('chart-lr',
-    [line(s.lr,          '#bc8cff', 'lr')],
+    [line(s.lr,          '#7c3aed', 'lr')],
     mkLayout({ yaxis: { ...BASE_LAYOUT.yaxis, tickformat: '.2e' } }), CFG);
 
-  Plotly.newPlot('chart-dataload',
-    [line(s.dataload_s,  '#79c0ff', 'dataload_s')],
+  Plotly.newPlot('chart-samples',
+    [line(s.samples_sec, '#0f766e', 'samples/sec')],
     mkLayout(), CFG);
 
   Plotly.newPlot('chart-update',
-    [line(s.update_s,    '#56d364', 'update_s')],
+    [line(s.update_s,    '#2563eb', 'update_s')],
     mkLayout(), CFG);
 
-  Plotly.newPlot('chart-samples',
-    [line(s.samples_sec, '#e3b341', 'samples/sec')],
+  Plotly.newPlot('chart-dataload',
+    [line(s.dataload_s,  '#f59e0b', 'dataload_s')],
     mkLayout(), CFG);
+
+  updateLossSummary();
 }
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
@@ -426,9 +682,9 @@ function renderTimeline() {
 
   // Event markers
   const typeStyle = {
-    epoch_end:    { color: '#3fb950', symbol: 'star',       size: 14 },
-    ckpt_deleted: { color: '#8b949e', symbol: 'x',          size: 8  },
-    ckpt_saved:   { color: '#e3b341', symbol: 'triangle-up',size: 10 },
+    epoch_end:    { color: '#059669', symbol: 'star',       size: 14 },
+    ckpt_deleted: { color: '#94a3b8', symbol: 'x',          size: 8  },
+    ckpt_saved:   { color: '#f59e0b', symbol: 'triangle-up',size: 10 },
   };
 
   const groups = {};
@@ -448,7 +704,7 @@ function renderTimeline() {
       type: 'scatter', mode: 'markers',
       name: type.replace(/_/g, ' '),
       marker: { color: st.color, symbol: st.symbol, size: st.size,
-                line: { color: '#0d1117', width: 1 } },
+                line: { color: '#ffffff', width: 1 } },
       hovertemplate: '%{text}<br>%{x}<extra></extra>',
     };
   });

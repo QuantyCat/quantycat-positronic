@@ -215,7 +215,7 @@ Output: `<training_output>/<task_label>_<robot>/dashboard.html`
 Open in a browser. If on a remote machine, serve it:
 
 ```bash
-cd <training_output>/screwdriver_so101
+cd <training_output>/<task_label>_<robot>
 python3 -m http.server 8080
 # then open http://<machine-ip>:8080/dashboard.html
 ```
