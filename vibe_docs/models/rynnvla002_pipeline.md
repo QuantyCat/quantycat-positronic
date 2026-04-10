@@ -106,6 +106,25 @@ Downloads to `~/RynnVLA-002/rynnvla-002/ckpts/`:
 
 ---
 
+## Set up environment (conda)
+
+Do this once per machine before preprocessing (and before any step that sources `setup.sh`). From the repo root:
+
+```bash
+conda create -n rynnvla002 python=3.13 -y
+conda activate rynnvla002
+source models/rynnvla-002/run_scripts/setup.sh
+```
+
+If native extensions or CUDA/driver tooling fail to build, install kernel headers and build tools, then retry `setup.sh`:
+
+```bash
+sudo apt install linux-headers-$(uname -r)
+sudo apt install build-essential python3-dev
+```
+
+---
+
 ## Steps 1–7 — Preprocessing
 
 ```bash
