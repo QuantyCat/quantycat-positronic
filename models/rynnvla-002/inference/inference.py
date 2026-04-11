@@ -170,30 +170,65 @@ def main() -> None:
         default=os.environ.get("RYNNVLA_REPO", ""),
         help="If set, prepend this directory to sys.path (e.g. ~/RynnVLA-002/rynnvla-002)",
     )
-    parser.add_argument("--prompt", type=str, required=True, help="Language instruction for the policy.")
-    parser.add_argument("--robot-port", type=str, required=True, help="Serial port for SO-101 follower.")
-    parser.add_argument("--robot-id", type=str, default="so101_follower", help="Calibration id on disk.")
-    parser.add_argument("--front-camera-index", type=int, default=1)
-    parser.add_argument("--wrist-camera-index", type=int, default=0)
+    parser.add_argument("--prompt", type=str, default=None, help="Language instruction for the policy.")
+    parser.add_argument("--robot-port", type=str, default=None, help="Serial port for SO-101 follower.")
+    parser.add_argument("--robot-id", type=str, default=None, help="Calibration id on disk.")
+    parser.add_argument("--front-camera-index", type=lambda x: int(x) if x.lstrip('-').isdigit() else x, default=None)
+    parser.add_argument("--wrist-camera-index", type=lambda x: int(x) if x.lstrip('-').isdigit() else x, default=None)
     parser.add_argument("--front-camera-key", type=str, default="front")
     parser.add_argument("--wrist-camera-key", type=str, default="wrist")
-    parser.add_argument("--camera-width", type=int, default=640)
-    parser.add_argument("--camera-height", type=int, default=360)
-    parser.add_argument("--camera-fps", type=int, default=30)
+    parser.add_argument("--camera-width", type=int, default=None)
+    parser.add_argument("--camera-height", type=int, default=None)
+    parser.add_argument("--camera-fps", type=int, default=None)
     parser.add_argument(
         "--control-period-s",
         type=float,
-        default=0.05,
+        default=None,
         help="Sleep between steps (0 = as fast as possible).",
     )
-    parser.add_argument("--max-steps", type=int, default=0, help="Stop after N steps (0 = forever).")
-    parser.add_argument("--gpu", type=int, default=0, help="CUDA device index.")
+    parser.add_argument("--max-steps", type=int, default=None, help="Stop after N steps (0 = forever).")
+    parser.add_argument("--gpu", type=int, default=None, help="CUDA device index.")
     args = parser.parse_args()
 
     cfg_path = Path(args.positronic_config)
     if not cfg_path.is_absolute():
         cfg_path = (root / cfg_path).resolve()
     positronic_cfg = _load_positronic_config(cfg_path)
+
+    # Fill inference params from config.yaml when not provided on CLI
+    _cam_type = lambda x: int(x) if str(x).lstrip('-').isdigit() else x
+
+    def _cfg(key, required=False):
+        val = positronic_cfg.get(key)
+        if required and val is None:
+            raise SystemExit(f"ERROR: '{key}' is required in config.yaml")
+        return val
+
+    if args.prompt is None:
+        args.prompt = _cfg("prompt", required=True)
+    if args.robot_port is None:
+        args.robot_port = _cfg("robot_port", required=True)
+    if args.robot_id is None:
+        args.robot_id = _cfg("robot_id", required=True)
+    if args.front_camera_index is None:
+        args.front_camera_index = _cam_type(_cfg("front_camera_index", required=True))
+    if args.wrist_camera_index is None:
+        args.wrist_camera_index = _cam_type(_cfg("wrist_camera_index", required=True))
+    if args.camera_width is None:
+        args.camera_width = _cfg("camera_width", required=True)
+    if args.camera_height is None:
+        args.camera_height = _cfg("camera_height", required=True)
+    if args.camera_fps is None:
+        args.camera_fps = _cfg("camera_fps", required=True)
+    if args.control_period_s is None:
+        args.control_period_s = _cfg("control_period_s", required=True)
+    if args.max_steps is None:
+        args.max_steps = _cfg("max_steps", required=True)
+    if args.gpu is None:
+        args.gpu = _cfg("gpu", required=True)
+    if args.checkpoint is None:
+        args.checkpoint = _cfg("checkpoint", required=True)
+
     ckpt_path = _resolve_checkpoint(args, positronic_cfg, root)
 
     _ensure_rynnvla_on_path(args.rynnvla_repo.strip() or None)
@@ -210,21 +245,21 @@ def main() -> None:
         ) from e
 
     import argparse as _argparse
-    his_val = positronic_cfg.get("his", 1)
     solver_args = _argparse.Namespace(
         resume_path=str(ckpt_path),
         output_dir=str(ckpt_path / "inference_logs"),
         device=args.gpu,
-        action_dim=positronic_cfg.get("action_dim", 6),
-        time_horizon=positronic_cfg.get("time_horizon", 5),
-        max_seq_len=4096,
-        mask_image_logits=True,
-        dropout=0.0,
-        z_loss_weight=0.0,
-        his=f"{his_val}h_1a",
-        action_steps=25,
+        action_dim=_cfg("action_dim", required=True),
+        time_horizon=_cfg("chunk_size", required=True),
+        max_seq_len=_cfg("max_seq_len", required=True),
+        mask_image_logits=_cfg("mask_image_logits", required=True),
+        dropout=_cfg("dropout", required=True),
+        z_loss_weight=_cfg("z_loss_weight", required=True),
+        his=_cfg("his_mode", required=True),
+        action_steps=_cfg("action_steps", required=True),
     )
 
+    Path(solver_args.output_dir).mkdir(parents=True, exist_ok=True)
     print(f"Loading Solver from {ckpt_path} …")
     solver = Solver(solver_args)
     robot = _make_robot(args)
