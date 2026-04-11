@@ -106,13 +106,20 @@ def _action_vector_to_robot_dict(vec: np.ndarray) -> dict[str, float]:
     return {f"{m}.pos": float(v[i]) for i, m in enumerate(_MOTOR_NAMES)}
 
 
-def _normalize_solver_action(action: Any) -> dict[str, float]:
-    if isinstance(action, dict):
-        return action
-    arr = np.asarray(action)
-    if arr.ndim == 2:
-        arr = arr[0]
-    return _action_vector_to_robot_dict(arr)
+def _delta_to_absolute_action(delta: Any, current_state: np.ndarray) -> dict[str, float]:
+    """Convert relative delta action to absolute motor positions.
+
+    Training stores actions as (action - current_state) for joints 0-4,
+    and absolute gripper position for joint 5 (see step1_convert_lerobot.py).
+    send_action expects absolute positions, so we add current state back.
+    """
+    arr = np.asarray(delta, dtype=np.float64).reshape(-1)
+    if arr.size != len(_MOTOR_NAMES):
+        raise ValueError(f"Expected action length {len(_MOTOR_NAMES)}, got {arr.size}")
+    state = np.asarray(current_state, dtype=np.float64).reshape(-1)
+    absolute = state + arr
+    absolute[-1] = arr[-1]  # gripper is already absolute
+    return _action_vector_to_robot_dict(absolute)
 
 
 def _make_robot(args: argparse.Namespace):
@@ -279,7 +286,10 @@ def main() -> None:
                 state=state,
                 prompt=args.prompt,
             )
-            cmd = _normalize_solver_action(action)
+            delta = np.asarray(action)
+            if delta.ndim == 2:
+                delta = delta[0]
+            cmd = _delta_to_absolute_action(delta, state)
             robot.send_action(cmd)
             step += 1
             if args.max_steps and step >= args.max_steps:
