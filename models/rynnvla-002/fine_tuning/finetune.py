@@ -88,7 +88,7 @@ cmd = [
     "--checkpointing",
     "--max_seq_len", "4096", #max token sequence length per sample. From original script, matches the pretokenized data.
     "--unmask_image_logits",
-    "--dropout", "0.08", #regularization during training - from RynnVLA-002 original paper [ 0.05 to 0.10 ]
+    "--dropout", "0.08", #regularization during training 
     "--z_loss_weight", "1e-5", #small auxiliary loss to stabilize softmax - from RynnVLA-002 original paper
     "--ckpt_max_keep", str(ckpt_max_keep), # from config.yaml
     "--save_iteration_interval", str(save_interval), # from config.yaml
