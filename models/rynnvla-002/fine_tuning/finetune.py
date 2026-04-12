@@ -76,8 +76,8 @@ cmd = [
     "--warmup_epochs", "0.01", # from RynnVLA-002 original paper
     "--lr", str(lr),          # from config.yaml
     "--min_lr", str(lr),      # from config.yaml
-    "--wd", "0.15", # weight decay from RynnVLA-002 original paper [ 0.10 to 0.18 ]
-    "--clip_grad", "4", # gradient clipping
+    "--wd", "0.00001", # weight decay from Danamo 
+    "--clip_grad", "1", # gradient clipping from Danmo 
     "--action_dim", str(action_dim),   # from config.yaml
     "--time_horizon", str(chunk_size), # from config.yaml
     "--data_config_train", data_config,
