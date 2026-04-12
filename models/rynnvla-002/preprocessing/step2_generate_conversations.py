@@ -153,6 +153,11 @@ def process_libero_data(
                 img_history_start_idx = max(0, j - his + 1)
                 img_c = copy.deepcopy(img_list[img_history_start_idx : j + 1])
                 img_c_w = copy.deepcopy(img_list_w[img_history_start_idx : j + 1])
+
+                # Pad with the earliest available frame if history is shorter than his
+                while len(img_c) < his:
+                    img_c.insert(0, img_c[0])
+                    img_c_w.insert(0, img_c_w[0])
                 action_c = copy.deepcopy(action_list[j])
                 state_c = copy.deepcopy(state_list[j])
 
