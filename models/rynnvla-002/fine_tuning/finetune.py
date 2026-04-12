@@ -73,9 +73,9 @@ cmd = [
     "--batch_size", str(batch_size),   # from config.yaml
     "--accum_iter", "1",
     "--epochs", str(epochs),  # from config.yaml
-    "--warmup_epochs", "0.01", # from RynnVLA-002 original paper
+    "--warmup_epochs", "0.03", #deault in pretrain_ck_action_head.py
     "--lr", str(lr),          # from config.yaml
-    "--min_lr", str(lr),      # from config.yaml
+    "--min_lr", 0.0000002,      # default in pretrain_ck_action_head.py
     "--wd", "0.00001", # weight decay from Danamo 
     "--clip_grad", "1", # gradient clipping from Danmo 
     "--action_dim", str(action_dim),   # from config.yaml
