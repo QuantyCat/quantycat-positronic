@@ -28,6 +28,7 @@ batch_size   = config["batch_size"]
 num_workers  = config["num_workers"]
 epochs       = config["epochs"]
 lr           = config["lr"]
+min_lr       = config["min_lr"]
 lora_r         = config["lora_r"]
 lora_alpha     = config["lora_alpha"]
 ckpt_max_keep  = config["ckpt_max_keep"]
@@ -75,7 +76,7 @@ cmd = [
     "--epochs", str(epochs),  # from config.yaml
     "--warmup_epochs", "0.03", #deault in pretrain_ck_action_head.py
     "--lr", str(lr),          # from config.yaml
-    "--min_lr", 0.0000002,      # default in pretrain_ck_action_head.py
+    "--min_lr", str(min_lr),      # from config.yaml
     "--wd", "0.00001", # weight decay from Danamo 
     "--clip_grad", "1", # gradient clipping from Danmo 
     "--action_dim", str(action_dim),   # from config.yaml

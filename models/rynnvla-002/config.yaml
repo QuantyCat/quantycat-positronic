@@ -16,6 +16,7 @@ batch_size: 4        # samples per GPU per step
 num_workers: 6      # CPU workers for data loading (machine has 32 cores)
 epochs: 15           # 15 epochs for ~50 demo dataset (in paper 14 - 19 looked good for shorter tasks, 39 for longer tasks)
 lr: 0.000002           # learning rate (first thing to adjust if not converging) - in Danamo + default in pretrain_ck_action_head.py
+min_lr: 0.0000002      # minimum learning rate (end of cosine schedule) - default in pretrain_ck_action_head.py
 ckpt_max_keep: 3     # number of checkpoints to keep (~14GB each)
 save_interval: 2000  # save a checkpoint every N iterations (within an epoch)
 
