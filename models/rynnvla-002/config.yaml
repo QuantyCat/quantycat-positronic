@@ -13,14 +13,19 @@ his: 2               # (history) the LeRobot training config uses his_1, LIBERO 
 
 # Training
 batch_size: 4        # samples per GPU per step
-num_workers: 6      # CPU workers for data loading (machine has 32 cores)
-epochs: 8           # 15 epochs for ~50 demo dataset (in paper 14 - 19 looked good for shorter tasks, 39 for longer tasks)
-lr: 0.000002           # learning rate (first thing to adjust if not converging) - in Danamo + default in pretrain_ck_action_head.py
-min_lr: 0.0000002      # minimum learning rate (end of cosine schedule) - default in pretrain_ck_action_head.py
+accum_iter: 4        # gradient accumulation steps — effective batch = batch_size × accum_iter
+num_workers: 6       # CPU workers for data loading (machine has 32 cores)
+epochs: 4           # paper says 14-19 for short tasks
+lr: 0.00002          # DAMO default; was 2e-6 (10x too low)
+min_lr: 0.000002     # end of cosine schedule; keep same ratio to lr
+clip_grad: 8.0       # was 4.0 — too tight given grad_norm of 100-165, gets worse with accum_iter=4
+z_loss_weight: 1e-3  # was 1e-5 — at 1e-5, z_loss contributes ~0.002 vs closs 14+, model has no incentive to reduce partition function
+fresh_start: true    # true = delete output_dir and start from init_from; false = auto-resume last checkpoint
 ckpt_max_keep: 3     # number of checkpoints to keep (~14GB each)
 save_interval: 2000  # save a checkpoint every N iterations (within an epoch)
 
-# LoRA
+# LoRA — trainable params: lora_weight_ + action_head + lm_head
+# (model lacks get_trainable_params so trainer warns and falls back to is_lora detection — behavior is correct)
 lora_r: 16           # rank - higher = more capacity but more memory (8-64 typical)
 lora_alpha: 32       # scaling factor - usually 2x lora_r
 

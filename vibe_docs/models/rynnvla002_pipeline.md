@@ -199,7 +199,7 @@ Training produced NaN loss from step 0. After extensive debugging the root cause
 
 - Load model with `device_map="cuda"` instead of `"cpu"` when `dp_world_size == 1` — avoids bf16 numerical instability from the CPU→CUDA load path
 - Fixed `add_lora_to_model` to initialize LoRA parameters with `device=module.weight.device` — when the base weights are already on CUDA, LoRA parameters must also be created on CUDA or the forward pass raises a device mismatch error
-- Unfroze `lm_head` in `add_lora_to_model` — the starting checkpoint zeros out `lm_head.weight` rows for action tokens (3:8195). With `lm_head` frozen, those rows stay zero throughout training, producing uniform logits for all action token predictions and pinning `closs` at `ln(65536) = 11.09` regardless of how many epochs run. Fix: added `"lm_head" in name` to the `requires_grad` condition so the output projection trains alongside LoRA and the action head.
+- Unfroze `lm_head` in `add_lora_to_model` — `starting_point` zeros **`lm_head`** rows for **Chameleon image** token IDs **4–8195** (not robot action bins). CE uses `loss_weights[3:8195]` on that same **image** slice. Pretokenized **action** targets use **10004** / **15004** delimiters and bin ids **10006–10261**, whose `lm_head` rows are already trained (non-zero) in the checkpoint. With `lm_head` frozen, the zeroed **image** rows never recovered, so losses involving image-token targets in that id band were wrong and `closs` could sit near **`ln(65536) ≈ 11.09`**. Fix: added `"lm_head" in name` to the `requires_grad` condition so the output projection trains alongside LoRA and the action head.
 
 **`xllmx/solvers/pretrain/pretrain_ck_action_head.py`**
 

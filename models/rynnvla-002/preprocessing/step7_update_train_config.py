@@ -18,6 +18,9 @@ with open(CONFIG_PATH) as f:
     config = yaml.safe_load(f)
 
 work_dir    = os.path.abspath(config["work_dir"])
+his         = config["his"]
+chunk_size  = config["chunk_size"]
+resolution  = config["resolution"]
 home        = os.path.expanduser("~")
 record_json = os.path.join(work_dir, "tokens", "vla_data", "record.json")
 
@@ -29,12 +32,10 @@ if not os.path.exists(record_json):
 # Store path relative to $HOME so it works on any machine
 portable_path = record_json.replace(home, "$HOME")
 
-rynnvla_repo = os.path.join(home, "RynnVLA-002", "rynnvla-002")
-train_config = os.path.join(
-    rynnvla_repo,
-    "configs", "lerobot",
-    "his_1_third_view_wrist_w_state_20_256_pretokenize.yaml"
-)
+# Filename derived from config values — must match what finetune.py constructs
+rynnvla_repo     = os.path.join(home, "RynnVLA-002", "rynnvla-002")
+config_name      = f"his_{his}_third_view_wrist_w_state_{chunk_size}_{resolution}_pretokenize.yaml"
+train_config     = os.path.join(rynnvla_repo, "configs", "lerobot", config_name)
 
 with open(train_config, "w") as f:
     f.write(f"META:\n  - path: '{portable_path}'\n")
