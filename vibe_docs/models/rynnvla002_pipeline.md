@@ -307,20 +307,23 @@ aws s3 ls s3://quantycat-positronic/screwdriver_so101/
 
 ## Inference on SO-101
 
-```python
-from rynnvla002 import Solver
-solver = Solver(resume_path="path/to/your/checkpoint")
+1. Activate the environment and set PYTHONPATH (from repo root):
 
-task = "Put the screwdriver into the cup"
-while True:
-    obs = robot.get_observation()
-    action = solver.get_action_wrist_action_head_state(
-        front_image=obs["observation.images.front"],
-        wrist_image=obs["observation.images.wrist"],
-        state=obs["observation.state"],
-        prompt=task
-    )
-    robot.send_action(action)
+```bash
+source models/rynnvla-002/run_scripts/setup.sh
+export PYTHONPATH="$HOME/Desktop/RynnVLA-002/rynnvla-002:$PYTHONPATH"
+```
+
+2. Set the checkpoint in `models/rynnvla-002/config.yaml`:
+
+```yaml
+checkpoint: /home/caroline/Desktop/fine_tuning/screwdriver_so101/<your-checkpoint>
+```
+
+3. Run inference:
+
+```bash
+python3 models/rynnvla-002/inference/inference.py
 ```
 
 ---

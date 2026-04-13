@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from PIL import Image as PILImage
 import yaml
 
 # Joint order must match LeRobot dataset `observation.state` for SO-101 follower demos.
@@ -273,29 +274,55 @@ def main() -> None:
 
     step = 0
     try:
-        robot.connect(calibrate=True)
+        try:
+            robot.connect(calibrate=True)
+        except ConnectionError as e:
+            if "Lock" in str(e) or "enable_torque" in str(e).lower() or "status packet" in str(e).lower():
+                print(f"WARNING: torque re-enable failed during configure ({e}). Retrying torque enable…")
+                robot.bus.enable_torque(num_retry=5)
+            else:
+                raise
         print("Robot connected. Running control loop (Ctrl+C to stop).")
+        img_out = Path(solver_args.output_dir) / "latest_obs"
+        img_out.mkdir(parents=True, exist_ok=True)
+
         while True:
             obs = robot.get_observation()
             front, wrist, state = _obs_to_solver_inputs(
                 obs, args.front_camera_key, args.wrist_camera_key
             )
-            action = solver.get_action_wrist_action_head_state(
+            PILImage.fromarray(front).save(img_out / "front.jpg")
+            PILImage.fromarray(wrist).save(img_out / "wrist.jpg")
+            # Training data uses radians; robot.get_observation() returns degrees.
+            state_rad = np.deg2rad(state)
+            action_chunk = solver.get_action_wrist_action_head_state(
                 front_image=front,
                 wrist_image=wrist,
-                state=state,
+                state=state_rad,
                 prompt=args.prompt,
             )
-            delta = np.asarray(action)
-            if delta.ndim == 2:
-                delta = delta[0]
-            cmd = _delta_to_absolute_action(delta, state)
-            robot.send_action(cmd)
-            step += 1
+            deltas = np.asarray(action_chunk)
+            if deltas.ndim == 1:
+                deltas = deltas[np.newaxis, :]  # ensure (T, 6)
+
+            # Execute all steps in the chunk before re-inferring
+            for delta in deltas:
+                obs = robot.get_observation()
+                _, _, state = _obs_to_solver_inputs(
+                    obs, args.front_camera_key, args.wrist_camera_key
+                )
+                state_rad = np.deg2rad(state)
+                cmd_rad = _delta_to_absolute_action(delta, state_rad)
+                cmd = {k: float(np.rad2deg(v)) for k, v in cmd_rad.items()}
+                robot.send_action(cmd)
+                step += 1
+                if args.max_steps and step >= args.max_steps:
+                    break
+                if args.control_period_s > 0:
+                    time.sleep(args.control_period_s)
+
             if args.max_steps and step >= args.max_steps:
                 break
-            if args.control_period_s > 0:
-                time.sleep(args.control_period_s)
     except KeyboardInterrupt:
         print("\nStopped by user.")
     finally:
