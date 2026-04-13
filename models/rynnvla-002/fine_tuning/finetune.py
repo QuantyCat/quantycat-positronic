@@ -78,7 +78,7 @@ cmd = [
     "--lr", str(lr),          # from config.yaml
     "--min_lr", str(min_lr),      # from config.yaml
     "--wd", "0.00001", # weight decay from Danamo 
-    "--clip_grad", "1", # gradient clipping from Danmo 
+    "--clip_grad", "4.0", # gradient clipping from Danmo 
     "--action_dim", str(action_dim),   # from config.yaml
     "--time_horizon", str(chunk_size), # from config.yaml
     "--data_config_train", data_config,
