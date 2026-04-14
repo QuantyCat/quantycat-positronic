@@ -134,7 +134,7 @@ cmd = [
 log_path = os.path.join(output_dir, "output.log")
 print(f"  Log: {log_path}")
 print()
-
+ 
 with open(log_path, "a") as log:
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     for line in proc.stdout:
