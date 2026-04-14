@@ -305,8 +305,10 @@ def main() -> None:
             if deltas.ndim == 1:
                 deltas = deltas[np.newaxis, :]  # ensure (T, 6)
 
+            print(f"[chunk] shape={deltas.shape}  deltas[0]={np.round(deltas[0], 4)}  state_rad={np.round(state_rad, 4)}")
+
             # Execute all steps in the chunk before re-inferring
-            for delta in deltas:
+            for i_step, delta in enumerate(deltas):
                 obs = robot.get_observation()
                 _, _, state = _obs_to_solver_inputs(
                     obs, args.front_camera_key, args.wrist_camera_key
@@ -314,6 +316,7 @@ def main() -> None:
                 state_rad = np.deg2rad(state)
                 cmd_rad = _delta_to_absolute_action(delta, state_rad)
                 cmd = {k: float(np.rad2deg(v)) for k, v in cmd_rad.items()}
+                print(f"  [step {step}] delta={np.round(delta, 4)}  cmd_deg={[round(v,2) for v in cmd.values()]}")
                 robot.send_action(cmd)
                 step += 1
                 if args.max_steps and step >= args.max_steps:
