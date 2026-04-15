@@ -200,6 +200,11 @@ def main() -> None:
         default=None,
         help="How many predicted chunk steps to execute before re-reading cameras and re-planning.",
     )
+    parser.add_argument(
+        "--deterministic-crop",
+        action="store_true",
+        help="Use deterministic center crop in the solver item processor for reproducible debugging.",
+    )
     parser.add_argument("--max-steps", type=int, default=None, help="Stop after N steps (0 = forever).")
     parser.add_argument("--gpu", type=int, default=None, help="CUDA device index.")
     args = parser.parse_args()
@@ -273,6 +278,9 @@ def main() -> None:
         z_loss_weight=_cfg("z_loss_weight", required=True),
         his=_cfg("his_mode", required=True),
         action_steps=_cfg("action_steps", required=True),
+        deterministic_crop=bool(
+            args.deterministic_crop or positronic_cfg.get("deterministic_crop", False)
+        ),
     )
 
     Path(solver_args.output_dir).mkdir(parents=True, exist_ok=True)
