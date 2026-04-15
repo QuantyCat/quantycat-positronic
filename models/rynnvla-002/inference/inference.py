@@ -194,6 +194,12 @@ def main() -> None:
         default=None,
         help="Sleep between steps (0 = as fast as possible).",
     )
+    parser.add_argument(
+        "--execute-steps-per-inference",
+        type=int,
+        default=None,
+        help="How many predicted chunk steps to execute before re-reading cameras and re-planning.",
+    )
     parser.add_argument("--max-steps", type=int, default=None, help="Stop after N steps (0 = forever).")
     parser.add_argument("--gpu", type=int, default=None, help="CUDA device index.")
     args = parser.parse_args()
@@ -230,6 +236,8 @@ def main() -> None:
         args.camera_fps = _cfg("camera_fps", required=True)
     if args.control_period_s is None:
         args.control_period_s = _cfg("control_period_s", required=True)
+    if args.execute_steps_per_inference is None:
+        args.execute_steps_per_inference = positronic_cfg.get("execute_steps_per_inference", 1)
     if args.max_steps is None:
         args.max_steps = _cfg("max_steps", required=True)
     if args.gpu is None:
@@ -307,8 +315,10 @@ def main() -> None:
 
             print(f"[chunk] shape={deltas.shape}  deltas[0]={np.round(deltas[0], 4)}  state_rad={np.round(state_rad, 4)}")
 
-            # Execute all steps in the chunk before re-inferring
-            for i_step, delta in enumerate(deltas):
+            # Receding-horizon control: predict a chunk, execute only the configured
+            # prefix, then re-read cameras and re-plan.
+            execute_steps = max(1, min(int(args.execute_steps_per_inference), int(deltas.shape[0])))
+            for i_step, delta in enumerate(deltas[:execute_steps]):
                 obs = robot.get_observation()
                 _, _, state = _obs_to_solver_inputs(
                     obs, args.front_camera_key, args.wrist_camera_key

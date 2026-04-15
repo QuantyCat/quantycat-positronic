@@ -195,6 +195,22 @@ Training produced NaN loss from step 0. After extensive debugging the root cause
 
 ### Changes made
 
+**`rynnvla-002/eval_solver_lerobot_action_head_state.py` — inference weight loading fix**
+
+Checkpoints saved during single-GPU training have all keys prefixed with `module.` (from `SingleGPUWrapper.state_dict()`). HuggingFace `from_pretrained` cannot match `module.model.embed_tokens.weight` → `model.embed_tokens.weight`, so every weight was randomly re-initialized, producing NaN hidden states and identical actions every step.
+
+Fixed `_model_func` to:
+1. Load model architecture to **CPU** with `device_map="cpu"` (avoids double GPU allocation)
+2. Load `model.safetensors` from the checkpoint and strip the `module.` prefix from all keys
+3. Register LoRA parameters (`lora_weight_A` / `lora_weight_B`) on the model via `add_lora_to_model` before loading — these named parameters don't exist on a freshly-initialized model, so they must be registered first or `load_state_dict` silently drops them
+4. Read `lora_r` and `lora_alpha` from the checkpoint's `args.json` so values stay in sync with the training run
+5. Apply the corrected state dict with `strict=False` (129 `model.vqmodel.*` keys are expected missing — the VQGAN encoder is deleted during training and not needed at inference)
+6. Move the finished model to GPU once with `.to(device)` — single allocation, no OOM spike
+
+**`rynnvla-002/model/modeling_xllmx_chameleon_ck_action_head.py` — inference forward pass fix**
+
+`generate_action_head` was originally calling `GenerationMixin.generate` and trying to extract hidden states from the generated token loop. The collection path returned all-zero hidden states. Replaced with a direct call to `self.model` (the `ChameleonModel` backbone) with `use_cache=False` and `torch.inference_mode()` — one forward pass, full sequence, returns `last_hidden_state` at the correct positions.
+
 **`rynnvla-002/pretrain_solver_awm_w_ck_action_head.py`**
 
 - Load model with `device_map="cuda"` instead of `"cpu"` when `dp_world_size == 1` — avoids bf16 numerical instability from the CPU→CUDA load path

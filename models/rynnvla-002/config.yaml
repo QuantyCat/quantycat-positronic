@@ -43,8 +43,9 @@ gpu: 0
 control_period_s: 0.05
 max_steps: 0              # 0 = run forever until Ctrl+C
 max_seq_len: 4096
-his_mode: 1h_1a_img_only_state
+his_mode: 2h_1a_img_both_wrist_state  # matches the his_2 third-view + wrist + state training format
 action_steps: 5
+execute_steps_per_inference: 1  # receding horizon: predict 5, execute 1, then re-read cameras and re-plan
 mask_image_logits: false   # false = unmask image logits during inference
 dropout: 0.0
 z_loss_weight: 0.0
