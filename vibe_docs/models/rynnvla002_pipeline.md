@@ -6,22 +6,6 @@ RynnVLA-002 has two components:
 
 ---
 
-## Forked repo
-
-We forked the original to [github.com/QuantyCat/RynnVLA-002](https://github.com/QuantyCat/RynnVLA-002) to store dataset-specific changes. Lives at `~/RynnVLA-002/` on the training machine.
-
-Three files changed from the original:
-
-**`data_lerobot/item_processor.py`** — updated `MIN/MAX_VALUES_ACTION` and `MIN/MAX_VALUES_STATE` from LIBERO values to actual screwdriver dataset values. Used to normalize joint values to [-1, 1] during pretokenization.
-
-**`eval_solver_lerobot_action_head_state.py`** — updated `unnorm_min_max()` with the same action min/max. Inference-time mirror — denormalizes predicted tokens back into real joint values before sending to the robot.
-
-**`data_lerobot/pretoken_lerobot_state.py`** — two fixes:
-- Subprocess Python invocation changed from hardcoded `"python"` to `sys.executable` so workers inherit the conda environment
-- Worker count changed from hardcoded `32` to `num_gpus * 16` — tuned for RTX 5090 (each worker uses ~1.15GB, 16 workers ≈ 18GB)
-
----
-
 ## Full pipeline
 
 ```
@@ -61,31 +45,6 @@ my_data/training_pipeline/fine_tuning/<task_label>_<robot>/
 source models/rynnvla-002/run_scripts/setup.sh
 source models/rynnvla-002/run_scripts/preprocess.sh
 bash models/rynnvla-002/run_scripts/finetune.sh
-```
-
----
-
-## Config
-
-All parameters live in `models/rynnvla-002/config.yaml`:
-
-```yaml
-input_dir: my_data/input_data
-work_dir: my_data/training_pipeline
-task_label: screwdriver    # short label for output filenames
-robot: so101               # robot name — used in fine_tuning output folder
-
-# Must be consistent across preprocessing, training, and inference
-chunk_size: 20             # sub-actions per chunk (lerobot default — must match time_horizon)
-action_dim: 6              # SO-101 has 6 joints
-resolution: 256            # VLA model uses 256x256
-his: 1                     # history length
-
-# Training — all from RynnVLA-002 original paper
-batch_size: 2              # reduce if OOM; 2 uses ~17GB on a 32GB card
-num_workers: 16            # CPU workers for data loading
-epochs: 40
-lr: 5e-6
 ```
 
 ---
@@ -167,70 +126,6 @@ This calls `models/rynnvla-002/fine_tuning/finetune.py`, which reads all paramet
 
 Checkpoint output: `$work_dir/fine_tuning/<task_label>_<robot>/`
 Training log: `$work_dir/fine_tuning/<task_label>_<robot>/output.log`
-
-**Key training flags:**
-
-| Flag | Value | Source |
-|---|---|---|
-| `--action_dim` | 6 | config.yaml — SO-101 has 6 joints |
-| `--time_horizon` | 20 | config.yaml — lerobot chunk size |
-| `--init_from` | `ckpts/starting_point` | pretrained RynnVLA-002 checkpoint |
-| `--epochs` | 40 | config.yaml |
-| `--lr` | 5e-6 | config.yaml |
-| `--batch_size` | 2 | config.yaml — reduce if OOM |
-| `--checkpointing` | enabled | saves VRAM by recomputing activations |
-| `--ckpt_max_keep` | 3 | keep last 3 checkpoints |
-
-If you get CUDA OOM at startup, reduce `batch_size` in `config.yaml` and rerun. With `batch_size: 2` the model uses ~17GB on a 32GB card.
-
----
-
-## Single-GPU fixes (what we changed from the original repo)
-
-The original RynnVLA-002 training code was written for multi-GPU FSDP. Running it on a single GPU required several fixes — all in the forked repo at `~/RynnVLA-002/`.
-
-### Root cause: NaN loss on single GPU
-
-Training produced NaN loss from step 0. After extensive debugging the root cause was: HuggingFace `from_pretrained(..., device_map="cpu")` loads weights to CPU and attaches `AlignDevicesHook` dispatch hooks to every submodule. Moving the model to CUDA afterward with `.to()` does not cleanly remove these hooks, and the forward pass produces NaN in bf16. The fix is to load directly to CUDA with `device_map="cuda"` for single-GPU runs.
-
-### Changes made
-
-**`rynnvla-002/eval_solver_lerobot_action_head_state.py` — inference weight loading fix**
-
-Checkpoints saved during single-GPU training have all keys prefixed with `module.` (from `SingleGPUWrapper.state_dict()`). HuggingFace `from_pretrained` cannot match `module.model.embed_tokens.weight` → `model.embed_tokens.weight`, so every weight was randomly re-initialized, producing NaN hidden states and identical actions every step.
-
-Fixed `_model_func` to:
-1. Load model architecture to **CPU** with `device_map="cpu"` (avoids double GPU allocation)
-2. Load `model.safetensors` from the checkpoint and strip the `module.` prefix from all keys
-3. Register LoRA parameters (`lora_weight_A` / `lora_weight_B`) on the model via `add_lora_to_model` before loading — these named parameters don't exist on a freshly-initialized model, so they must be registered first or `load_state_dict` silently drops them
-4. Read `lora_r` and `lora_alpha` from the checkpoint's `args.json` so values stay in sync with the training run
-5. Apply the corrected state dict with `strict=False` (129 `model.vqmodel.*` keys are expected missing — the VQGAN encoder is deleted during training and not needed at inference)
-6. Move the finished model to GPU once with `.to(device)` — single allocation, no OOM spike
-
-**`rynnvla-002/model/modeling_xllmx_chameleon_ck_action_head.py` — inference forward pass fix**
-
-`generate_action_head` was originally calling `GenerationMixin.generate` and trying to extract hidden states from the generated token loop. The collection path returned all-zero hidden states. Replaced with a direct call to `self.model` (the `ChameleonModel` backbone) with `use_cache=False` and `torch.inference_mode()` — one forward pass, full sequence, returns `last_hidden_state` at the correct positions.
-
-**`rynnvla-002/pretrain_solver_awm_w_ck_action_head.py`**
-
-- Load model with `device_map="cuda"` instead of `"cpu"` when `dp_world_size == 1` — avoids bf16 numerical instability from the CPU→CUDA load path
-- Fixed `add_lora_to_model` to initialize LoRA parameters with `device=module.weight.device` — when the base weights are already on CUDA, LoRA parameters must also be created on CUDA or the forward pass raises a device mismatch error
-- Unfroze `lm_head` in `add_lora_to_model` — `starting_point` zeros **`lm_head`** rows for **Chameleon image** token IDs **4–8195** (not robot action bins). CE uses `loss_weights[3:8195]` on that same **image** slice. Pretokenized **action** targets use **10004** / **15004** delimiters and bin ids **10006–10261**, whose `lm_head` rows are already trained (non-zero) in the checkpoint. With `lm_head` frozen, the zeroed **image** rows never recovered, so losses involving image-token targets in that id band were wrong and `closs` could sit near **`ln(65536) ≈ 11.09`**. Fix: added `"lm_head" in name` to the `requires_grad` condition so the output projection trains alongside LoRA and the action head.
-
-**`xllmx/solvers/pretrain/pretrain_ck_action_head.py`**
-
-- Added `SingleGPUWrapper` class — a thin `nn.Module` that mimics the FSDP API (provides `no_sync()`, `clip_grad_norm_()`, and `__getattr__` delegation) so the rest of the training loop works unchanged
-- Modified `setup_fsdp_sync` to return `SingleGPUWrapper(model)` instead of an FSDP-wrapped model when `dp_world_size == 1`. Also calls `remove_hook_from_module(model, recurse=True)` to strip any accelerate dispatch hooks before wrapping.
-- Fixed 3 occurrences of `loss_weights = torch.ones(65536)` — missing `device=` argument caused the weight tensor to land on CPU, which then crashed `CrossEntropyLoss` with "weight is on cpu"
-
-**`xllmx/util/ckpt.py`**
-
-- Reworked the `save` function to skip `FSDP.state_dict_type()` context manager when the model is not an FSDP instance — that API requires an actual FSDP model and raises an error otherwise
-- Handled a HuggingFace `save_pretrained` bug in this transformers version where `_get_tied_weight_keys` calls `.keys()` on a list — fixed by temporarily setting `inner._tied_weights_keys = []` before calling `save_pretrained`, restoring it in a `finally` block
-
-### Training config changes
-
-- `batch_size: 2` — reduced from 8 (original paper) due to GPU memory. With direct CUDA load and gradient checkpointing, batch_size=4 OOMs at 31GB; batch_size=2 runs at ~17GB.
 
 ---
 
@@ -341,6 +236,72 @@ checkpoint: /home/caroline/Desktop/fine_tuning/screwdriver_so101/<your-checkpoin
 ```bash
 python3 models/rynnvla-002/inference/inference.py
 ```
+
+### Forked RynnVLA-002 changes to remember
+
+The local fork at `~/RynnVLA-002/` is not a small patch on top of official RynnVLA-002. The most important differences for SO-101 debugging are:
+
+- single-GPU training/inference fixes:
+  - the original code assumed multi-GPU FSDP
+  - the fork adds `SingleGPUWrapper`, removes bad dispatch-hook behavior, and fixes several CPU/GPU placement bugs
+- custom checkpoint loading for inference:
+  - SO-101 checkpoints were saved with `module.` prefixes
+  - the fork strips `module.`, registers LoRA parameters before `load_state_dict`, and then moves the model to GPU once
+- action-head inference path:
+  - the fork does a direct backbone forward in `generate_action_head(...)` instead of relying on `generate()`
+  - this is what fixed the all-zero / broken hidden-state path
+- LeRobot-specific normalization:
+  - action/state min-max values in the fork are radian-scale and task-specific, not the original repo defaults
+- pretokenized training contract:
+  - this checkpoint trained with `preprocess=true`, so actual `.pkl` training samples matter more than flags like `with_wrist=false`
+  - the training samples for this run contained 4 image blocks, 1 state block, and 5 action blocks
+
+Agent debugging notes:
+- treat this checkpoint as trained on `his=2` with `front t-1`, `front t`, `wrist t-1`, `wrist t`, plus state
+- use `2h_1a_img_both_wrist_state` for inference alignment
+- the action-head input must end with the `10004` trigger token
+- the wrist camera was present during training, but appears much weaker than the front camera for this task
+- use `--deterministic-crop` only for debugging reproducibility; default behavior intentionally keeps randomized crop selection
+
+### Inference alignment notes
+
+The screwdriver checkpoint should be treated as trained on this observation contract:
+- `his = 2`
+- front + wrist + state
+- image order: `front t-1`, `front t`, `wrist t-1`, `wrist t`
+
+That is why the forked inference path uses `2h_1a_img_both_wrist_state` instead of the older `1h_1a_img_only_state`.
+
+### What recent offline debugging established
+
+Using the offline inference runner on saved observations:
+
+- the action-head path is now structurally working:
+  - the final token is the `10004` trigger
+  - hidden states are finite
+  - action chunks are produced with shape `(5, 6)`
+- front-camera sensitivity is strong
+- state sensitivity is present
+- wrist sensitivity exists but is much weaker than front
+
+This matches manual inspection of the dataset:
+- the front camera usually carries the global task geometry
+- the wrist camera often only shows the handle, cup wall, or a tight local view
+
+So weak wrist influence in this checkpoint is currently expected and does **not** imply that wrist packing is broken.
+
+### Deterministic crop flag for debugging
+
+The item processor uses randomized crop selection by default, which is useful as augmentation but bad for debugging because the same image can tokenize differently on different runs.
+
+For offline debugging there is now a deterministic center-crop option:
+
+```bash
+python3 models/rynnvla-002/inference/offline_inference.py \
+  --deterministic-crop ...
+```
+
+This is intentionally behind a flag so the default code path stays unchanged unless reproducibility is needed.
 
 ---
 
