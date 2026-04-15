@@ -48,3 +48,54 @@ Fresh 4-epoch run with April 13th fixes applied. Model converged — closs dropp
 | `l1_loss_action` | ~0.73 | ~0.66 | ~0.645 |
 | `grad_norm` | ~36 | ~34 | ~33 |
 | `lr` | 0.000018 | 0.000016 | 0.000008 |
+
+---
+
+# April 14th (run 2 — completed)
+
+## Context
+
+Restarted fresh with April 14th config (lr=5e-5, clip_grad=16). Ran all 4 epochs to completion in 15h 37m. Model continued improving through epoch 3 with no plateau — cosine schedule bottomed out at min_lr=0.000005 by epoch 3, which explains the smaller gains in the final epoch. Final checkpoint: `04132026_epoch3-iter1999`.
+
+## Final training metrics
+
+| Metric | Epoch 0 end | Epoch 1 end | Epoch 2 end | Epoch 3 end |
+|---|---|---|---|---|
+| `closs` | 4.01 | 3.24 | 3.13 | 3.10 |
+| `acc_action` (avg joints 5–9) | ~0.086 | ~0.157 | ~0.176 | ~0.183 |
+| `l1_loss_action` (avg) | ~0.641 | ~0.578 | ~0.550 | ~0.544 |
+| `grad_norm` | ~44 | ~38 | ~33 | ~32 |
+| `lr` | 0.000044 | 0.000028 | 0.000012 | 0.000005 |
+
+## Comparison vs previous run (stopped at epoch 2)
+
+| Metric | Old run epoch 2 (stopped) | New run epoch 3 (final) |
+|---|---|---|
+| `closs` | 3.54 | 3.10 |
+| `acc_action` | ~0.074 | ~0.183 |
+| `l1_loss_action` | ~0.645 | ~0.544 |
+
+## Observations
+
+- Action accuracy more than doubled (0.074 → 0.183) — the higher lr + clip_grad gave significantly more signal per step
+- closs still declining at epoch 3 end; model not fully converged — if inference is poor, resume with `fresh_start: false` and add epochs
+- grad_norm settled at ~31–32 by epoch 3, well within clip_grad=16 headroom
+- cosine schedule hits min_lr too early on a 4-epoch run; consider longer schedule (8–12 epochs) for next run
+
+---
+
+# April 14th (run 3 — pending)
+
+## Context
+
+Run 2 completed with closs 3.10 and acc_action ~0.183 but model not fully converged — still improving at epoch 3 end when cosine schedule bottomed out at min_lr. Increasing effective step size for next run to push further.
+
+## Changes
+
+### config.yaml
+
+| Parameter | From | To | Why |
+|---|---|---|---|
+| `lr` | `0.00005` | `0.0001` | 2× bump; effective step at epoch 0 ~5.5e-5 vs ~1.8e-5 previously (grad_norm ~44, clip_grad 24) |
+| `min_lr` | `0.000005` | `0.00001` | Keeps the same 10:1 ratio to lr |
+| `clip_grad` | `16.0` | `24.0` | grad_norm stable at 31–44 with no spikes; more headroom increases effective step without risking instability |

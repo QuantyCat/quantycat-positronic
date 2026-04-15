@@ -15,10 +15,10 @@ his: 2               # (history) the LeRobot training config uses his_1, LIBERO 
 batch_size: 4        # samples per GPU per step
 accum_iter: 4        # gradient accumulation steps — effective batch = batch_size × accum_iter
 num_workers: 6       # CPU workers for data loading (machine has 32 cores)
-epochs: 4            # paper says 14-19 for short tasks
-lr: 0.00005          # was 2e-5; bumped for larger effective step given grad_norm ~33 always clipping
-min_lr: 0.000005     # end of cosine schedule; keep 10:1 ratio to lr
-clip_grad: 16.0      # was 8.0 — giving gradients more room given stable grad_norm ~33
+epochs: 5            # paper says 14-19 for short tasks
+lr: 0.0001           # was 5e-5; 2× bump — effective step ~5.5e-5 vs 1.8e-5 previously
+min_lr: 0.00001      # end of cosine schedule; keep 10:1 ratio to lr
+clip_grad: 24.0      # was 16.0 — more headroom given stable grad_norm ~31-44
 z_loss_weight: 1e-3  # was 1e-5 — at 1e-5, z_loss contributes ~0.002 vs closs 14+, model has no incentive to reduce partition function
 fresh_start: true    # true = delete output_dir and start from init_from; false = auto-resume last checkpoint
 ckpt_max_keep: 3     # number of checkpoints to keep (~14GB each)
