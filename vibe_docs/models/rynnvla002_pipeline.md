@@ -205,6 +205,7 @@ Output: `<training_output>/<task_label>_<robot>/resources.csv`
 ## Push checkpoint to S3
 
 ```bash
+tmux attach -t upload
 aws s3 cp quantycat-positronic/my_data/training_pipeline/fine_tuning/screwdriver_so101/<epoch> s3://quantycat-positronic/screwdriver_so101/<date_epoch> --recursive
 ```
 
