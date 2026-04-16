@@ -1,4 +1,8 @@
-my_data/
+my_data/*
+!my_data/training_pipeline/
+my_data/training_pipeline/*
+!my_data/training_pipeline/min_max_action.txt
+!my_data/training_pipeline/min_max_state.txt
 
 # Zip files
 *.zip
