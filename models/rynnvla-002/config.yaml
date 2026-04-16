@@ -33,7 +33,7 @@ lora_r: 16
 lora_alpha: 32
 
 # Inference
-checkpoint: /home/caroline/Desktop/fine_tuning/screwdriver_so101/04142026_epoch3
+checkpoint: /home/caroline/Desktop/fine_tuning/screwdriver_so101/04152026_epoch4
 prompt: "Put the screwdriver into the cup"
 robot_port: /dev/ttyACM0
 robot_id: so101_follower
