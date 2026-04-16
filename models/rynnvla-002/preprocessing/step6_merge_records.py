@@ -33,11 +33,13 @@ if not split_dirs:
     split_dirs = [root_dir]
 
 train_record_json = None
+found_jsonl = False
 
 for split_dir in split_dirs:
     jsonl_files = sorted(glob.glob(os.path.join(split_dir, "*-record.jsonl")))
     if not jsonl_files:
         continue
+    found_jsonl = True
 
     record_json = os.path.join(split_dir, "record.json")
     if os.path.exists(record_json):
@@ -61,3 +63,7 @@ if train_record_json:
     compat_record_json = os.path.join(root_dir, "record.json")
     shutil.copyfile(train_record_json, compat_record_json)
     print(f"Wrote compatibility train alias → {compat_record_json}")
+elif not found_jsonl:
+    print(f"ERROR: no per-worker record shards found under {root_dir}")
+    print("Pretokenization likely failed before writing *-record.jsonl files. Check the split logs and rerun Step 5.")
+    sys.exit(1)

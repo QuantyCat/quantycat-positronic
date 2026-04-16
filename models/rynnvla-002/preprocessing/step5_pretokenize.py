@@ -75,3 +75,10 @@ for conv_path in conversation_files:
     )
     if result.returncode != 0:
         sys.exit(result.returncode)
+
+    record_shards = glob(os.path.join(split_output_dir, "*-record.jsonl"))
+    if not record_shards:
+        log_dir = os.path.join(split_output_dir, "logs")
+        print(f"ERROR: pretokenization finished without producing any record shards for split '{split_name}'")
+        print(f"Check worker logs in {log_dir}")
+        sys.exit(1)

@@ -10,6 +10,7 @@ Run from repo root:
 """
 
 import os
+import re
 import sys
 import subprocess
 import yaml
@@ -25,12 +26,36 @@ training_data = os.path.join(work_dir, "training_data")
 action_stats = os.path.join(work_dir, "min_max_action.txt")
 state_stats = os.path.join(work_dir, "min_max_state.txt")
 
-if os.path.exists(action_stats) and os.path.exists(state_stats):
+STAT_ROW_RE = re.compile(r"^\s*(?:Dim|维度)\s+\d+\s+\|")
+
+
+def _stats_file_is_valid(path):
+    if not os.path.isfile(path):
+        return False
+    with open(path, encoding="utf-8") as f:
+        rows = [line for line in f if STAT_ROW_RE.match(line)]
+    return len(rows) == 6
+
+
+def _extract_stat_rows(lines, script_name):
+    rows = [line if line.endswith("\n") else f"{line}\n" for line in lines if STAT_ROW_RE.match(line)]
+    if len(rows) != 6:
+        print(f"ERROR: expected 6 stats rows from {script_name}, got {len(rows)}")
+        sys.exit(1)
+    return rows
+
+
+if _stats_file_is_valid(action_stats) and _stats_file_is_valid(state_stats):
     print("Min/max already calculated — skipping.")
     print(f"  Action stats: {action_stats}")
     print(f"  State stats:  {state_stats}")
     print("Delete these files to rerun.")
     sys.exit(0)
+
+for stale_file in (action_stats, state_stats):
+    if os.path.exists(stale_file) and not _stats_file_is_valid(stale_file):
+        print(f"Malformed stats file detected, regenerating: {stale_file}")
+        os.remove(stale_file)
 
 for script, output_file in [
     ("step4_calculate_min_max_action.py", action_stats),
@@ -50,6 +75,7 @@ for script, output_file in [
     proc.wait()
     if proc.returncode != 0:
         sys.exit(proc.returncode)
+    stat_rows = _extract_stat_rows(lines, script)
     with open(output_file, "w") as f:
-        f.writelines(lines)
+        f.writelines(stat_rows)
     print(f"  Saved to {output_file}")
