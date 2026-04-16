@@ -152,6 +152,12 @@ def main() -> None:
             raise SystemExit(f"ERROR: '{key}' is required in config.yaml")
         return val
 
+    work_dir = Path(_cfg("work_dir", required=True))
+    if not work_dir.is_absolute():
+        work_dir = (root / work_dir).resolve()
+    os.environ["RYNNVLA_ACTION_STATS_FILE"] = str((work_dir / "min_max_action.txt").resolve())
+    os.environ["RYNNVLA_STATE_STATS_FILE"] = str((work_dir / "min_max_state.txt").resolve())
+
     if args.prompt is None:
         args.prompt = _cfg("prompt", required=True)
     if args.gpu is None:

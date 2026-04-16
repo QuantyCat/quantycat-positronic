@@ -40,6 +40,8 @@ ckpt_max_keep  = config["ckpt_max_keep"]
 save_interval  = config["save_interval"]
 fresh_start    = config.get("fresh_start", False)
 run_validation = bool(config.get("run_validation", False))
+action_stats   = os.path.join(work_dir, "min_max_action.txt")
+state_stats    = os.path.join(work_dir, "min_max_state.txt")
 
 home         = os.path.expanduser("~")
 rynnvla_repo = os.path.join(home, "RynnVLA-002", "rynnvla-002")
@@ -149,7 +151,10 @@ print(f"  Log: {log_path}")
 print()
  
 with open(log_path, "a") as log:
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    env = os.environ.copy()
+    env["RYNNVLA_ACTION_STATS_FILE"] = action_stats
+    env["RYNNVLA_STATE_STATS_FILE"] = state_stats
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
     for line in proc.stdout:
         print(line, end="")
         log.write(line)

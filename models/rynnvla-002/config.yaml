@@ -48,7 +48,8 @@ max_steps: 0
 max_seq_len: 4096
 his_mode: 2h_1a_img_both_wrist_state
 action_steps: 5
-execute_steps_per_inference: 1
+execute_steps_per_inference: 2
+deterministic_crop: true
 mask_image_logits: false
 dropout: 0.0
 inference_z_loss_weight: 0.0

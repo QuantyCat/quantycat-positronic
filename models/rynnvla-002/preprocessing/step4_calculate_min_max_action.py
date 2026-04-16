@@ -41,7 +41,8 @@ def find_all_action_npy_files_fast(root_directories):
         return npy_file_paths
 
     print("Scanning for files using glob pattern...")
-    glob_pattern = os.path.join('*', 'abs_action', '*', '0.npy')
+    # Use every sub-action in each chunk, not just the first step.
+    glob_pattern = os.path.join('*', 'abs_action', '*', '*.npy')
 
     for root_dir in tqdm(root_directories, desc="Scanning directories", unit="dir"):
         if not os.path.isdir(root_dir):

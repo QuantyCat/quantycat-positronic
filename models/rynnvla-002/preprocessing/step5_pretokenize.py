@@ -24,6 +24,8 @@ work_dir    = os.path.abspath(config["work_dir"])
 label       = config["task_label"]
 his         = config["his"]
 resolution  = config["resolution"]
+action_stats = os.path.join(work_dir, "min_max_action.txt")
+state_stats = os.path.join(work_dir, "min_max_state.txt")
 
 rynnvla_repo = os.path.join(os.path.expanduser("~"), "RynnVLA-002", "rynnvla-002")
 if not os.path.isdir(rynnvla_repo):
@@ -51,6 +53,9 @@ if not conversation_files:
     conversation_files = [input_file]
 
 os.makedirs(output_dir, exist_ok=True)
+env = os.environ.copy()
+env["RYNNVLA_ACTION_STATS_FILE"] = action_stats
+env["RYNNVLA_STATE_STATS_FILE"] = state_stats
 
 for conv_path in conversation_files:
     split_name = os.path.basename(conv_path).split(f"libero_{label}_his_{his}_", 1)[1].split("_img_state_abs_ck_1_", 1)[0]
@@ -66,6 +71,7 @@ for conv_path in conversation_files:
          "--resolution", str(resolution),
          "--tokenizer_path", tokenizer],
         cwd=os.path.join(rynnvla_repo, "data_lerobot"),
+        env=env,
     )
     if result.returncode != 0:
         sys.exit(result.returncode)

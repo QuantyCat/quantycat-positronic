@@ -36,6 +36,8 @@ num_workers    = config["num_workers"]
 z_loss_weight  = config["train_z_loss_weight"]
 lora_r         = config["lora_r"]
 lora_alpha     = config["lora_alpha"]
+action_stats   = os.path.join(work_dir, "min_max_action.txt")
+state_stats    = os.path.join(work_dir, "min_max_state.txt")
 
 home         = os.path.expanduser("~")
 rynnvla_repo = os.path.join(home, "RynnVLA-002", "rynnvla-002")
@@ -101,5 +103,8 @@ print(f"  val_ind: {data_config_val_ind}")
 print(f"  val_ood: {data_config_val_ood}")
 print(f"  output:  {output_dir}")
 
-result = subprocess.run(cmd)
+env = os.environ.copy()
+env["RYNNVLA_ACTION_STATS_FILE"] = action_stats
+env["RYNNVLA_STATE_STATS_FILE"] = state_stats
+result = subprocess.run(cmd, env=env)
 sys.exit(result.returncode)
