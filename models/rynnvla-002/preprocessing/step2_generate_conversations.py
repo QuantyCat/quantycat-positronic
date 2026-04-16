@@ -3,7 +3,7 @@ Stage 2 — Generate conversation JSON from extracted training data
 models/rynnvla-002/preprocessing/generate_conversations.py
 
 Reads the per-episode folder structure produced by convert_lerobot.py and
-generates a single JSON file of training conversations for RynnVLA-002.
+generates split JSON files of conversations for RynnVLA-002.
 
 Each timestep becomes one conversation:
     human: "What action should the robot take to <task>?" + <state> + <images>
@@ -12,6 +12,7 @@ Each timestep becomes one conversation:
 Output:
     $WORK_DIR/conversations/
         libero_<task_label>_his_<his>_train_img_state_abs_ck_1_<resolution>.json
+        libero_<task_label>_his_<his>_val_ind_img_state_abs_ck_1_<resolution>.json
 P.S - these variables come from config.yaml
 
 Usage:
@@ -22,6 +23,7 @@ This file was generated from RynnVLA-002/rynnvla-002/lerobot_util/action_model_c
 
 import copy
 import json
+import math
 import os
 import sys
 
@@ -37,7 +39,9 @@ def process_libero_data(
     task_name_for_output: str,
     resolution: int,
     len_action: int,
-    output_dir: str
+    output_dir: str,
+    run_validation: bool,
+    val_ratio: float,
 ):
     """
     Processes robot trajectory data from a specified input directory to create conversational datasets.
@@ -57,8 +61,8 @@ def process_libero_data(
     ACTION_CHUNK_PREDICTION_HORIZON = 1
     SUB_ACTIONS_PER_CHUNK = len_action
 
-    train_convs = []
-    train_traj_count = 0
+    split_convs = {"train": [], "val_ind": []}
+    split_traj_count = {"train": 0, "val_ind": 0}
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -90,10 +94,19 @@ def process_libero_data(
         if not os.path.isdir(task_path):
             continue
 
-        trj_list = sorted(os.listdir(task_path))
+        trj_list = [name for name in sorted(os.listdir(task_path)) if os.path.isdir(os.path.join(task_path, name))]
+        if not trj_list:
+            continue
 
-        for trj in tqdm(trj_list, desc=f"  - Trajectories for '{task_name_readable}'", leave=False):
+        val_count = 0
+        if run_validation and len(trj_list) > 1:
+            val_count = max(1, math.ceil(len(trj_list) * val_ratio))
+            val_count = min(val_count, len(trj_list) - 1)
+        split_start = len(trj_list) - val_count
+
+        for trj_idx, trj in enumerate(tqdm(trj_list, desc=f"  - Trajectories for '{task_name_readable}'", leave=False)):
             trj_path = os.path.join(task_path, trj)
+            split_name = "val_ind" if run_validation and trj_idx >= split_start else "train"
 
             if not os.path.isdir(trj_path):
                 continue
@@ -179,22 +192,30 @@ def process_libero_data(
                     "action": action_c,
                     "state": state_c
                 }
-                train_convs.append(conv)
+                split_convs[split_name].append(conv)
 
-            train_traj_count += 1
+            split_traj_count[split_name] += 1
 
     print("-" * 30)
     print("Saving dataset...")
 
-    train_output_path = os.path.join(output_dir, f'libero_{task_name_for_output}_his_{his}_train_img_state_abs_ck_{ACTION_CHUNK_PREDICTION_HORIZON}_{resolution}.json')
-
-    with open(train_output_path, 'w') as f:
-        json.dump(train_convs, f, indent=2)
-    print(f"Saved conversations to: {train_output_path}")
+    for split_name, convs in split_convs.items():
+        if split_name != "train" and not run_validation:
+            continue
+        output_path = os.path.join(
+            output_dir,
+            f"libero_{task_name_for_output}_his_{his}_{split_name}_img_state_abs_ck_{ACTION_CHUNK_PREDICTION_HORIZON}_{resolution}.json",
+        )
+        with open(output_path, "w") as f:
+            json.dump(convs, f, indent=2)
+        print(f"Saved {split_name} conversations to: {output_path}")
 
     print("\n--- Summary ---")
-    print(f"Total trajectories processed: {train_traj_count}")
-    print(f"Total conversations generated: {len(train_convs)}")
+    print(f"Train trajectories: {split_traj_count['train']}")
+    print(f"Train conversations: {len(split_convs['train'])}")
+    if run_validation:
+        print(f"Validation trajectories: {split_traj_count['val_ind']}")
+        print(f"Validation conversations: {len(split_convs['val_ind'])}")
 
 
 def main():
@@ -206,6 +227,8 @@ def main():
     resolution = config.get("resolution")
     chunk_size = config.get("chunk_size")
     task_label = config.get("task_label")
+    run_validation = bool(config.get("run_validation", False))
+    val_ratio = float(config.get("val_ratio", 0.1))
 
     if not all([work_dir, his, resolution, chunk_size, task_label]):
         print(f"ERROR: work_dir, his, resolution, chunk_size, and task_label must be set in {CONFIG_PATH}")
@@ -227,6 +250,8 @@ def main():
         resolution=resolution,
         len_action=chunk_size,
         output_dir=output_dir,
+        run_validation=run_validation,
+        val_ratio=val_ratio,
     )
 
 

@@ -275,7 +275,7 @@ def main() -> None:
         max_seq_len=_cfg("max_seq_len", required=True),
         mask_image_logits=_cfg("mask_image_logits", required=True),
         dropout=_cfg("dropout", required=True),
-        z_loss_weight=_cfg("z_loss_weight", required=True),
+        z_loss_weight=_cfg("inference_z_loss_weight", required=True),
         his=_cfg("his_mode", required=True),
         action_steps=_cfg("action_steps", required=True),
         deterministic_crop=bool(

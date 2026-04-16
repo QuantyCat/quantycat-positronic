@@ -1,11 +1,16 @@
-export MODEL_ROOT=models/rynnvla-002  # structural — always this path, not configurable
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export MODEL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+_fail_setup() {
+    return 1 2>/dev/null || exit 1
+}
 
 if ! command -v conda &> /dev/null; then
     echo "ERROR: conda not found. Install Miniconda first:"
     echo "  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
     echo "  bash Miniconda3-latest-Linux-x86_64.sh"
     echo "  source ~/.bashrc"
-    return 1
+    _fail_setup
 fi
 
 if [[ "$(uname)" == "Darwin" ]]; then

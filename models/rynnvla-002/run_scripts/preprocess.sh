@@ -1,34 +1,48 @@
+#!/usr/bin/env bash
+
+_fail_preprocess() {
+    return 1 2>/dev/null || exit 1
+}
+
 if [ -z "$MODEL_ROOT" ] || [ -z "$PYTHON" ]; then
-    echo "ERROR: run 'source models/rynnvla-002/run_scripts/setup.sh' first"
-    return 1
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    MODEL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+    if [ -z "$PYTHON" ]; then
+        PYTHON="$(command -v python3)"
+    fi
+fi
+
+if [ -z "$MODEL_ROOT" ] || [ -z "$PYTHON" ]; then
+    echo "ERROR: source $MODEL_ROOT/run_scripts/setup.sh first, or ensure python3 is on PATH"
+    _fail_preprocess
 fi
 
 echo "--- Step 1: Convert LeRobot dataset to RynnVLA-002 format ---"
-$PYTHON $MODEL_ROOT/preprocessing/step1_convert_lerobot.py || return 1
+$PYTHON "$MODEL_ROOT/preprocessing/step1_convert_lerobot.py" || _fail_preprocess
 
 echo ""
 echo "--- Step 2: Generate conversation JSON ---"
-$PYTHON $MODEL_ROOT/preprocessing/step2_generate_conversations.py || return 1
+$PYTHON "$MODEL_ROOT/preprocessing/step2_generate_conversations.py" || _fail_preprocess
 
 echo ""
 echo "--- Step 3: Verify outputs ---"
-$PYTHON $MODEL_ROOT/preprocessing/step3_verify.py || return 1
+$PYTHON "$MODEL_ROOT/preprocessing/step3_verify.py" || _fail_preprocess
 
 echo ""
 echo "--- Step 4: Calculate action and state min/max values ---"
-$PYTHON $MODEL_ROOT/preprocessing/step4_calculate_min_max.py || return 1
+$PYTHON "$MODEL_ROOT/preprocessing/step4_calculate_min_max.py" || _fail_preprocess
 
 echo ""
 echo "--- Step 5: Pretokenize ---"
-$PYTHON $MODEL_ROOT/preprocessing/step5_pretokenize.py || return 1
+$PYTHON "$MODEL_ROOT/preprocessing/step5_pretokenize.py" || _fail_preprocess
 
 echo ""
 echo "--- Step 6: Merge worker records ---"
-$PYTHON $MODEL_ROOT/preprocessing/step6_merge_records.py || return 1
+$PYTHON "$MODEL_ROOT/preprocessing/step6_merge_records.py" || _fail_preprocess
 
 echo ""
 echo "--- Step 7: Update training config ---"
-$PYTHON $MODEL_ROOT/preprocessing/step7_update_train_config.py || return 1
+$PYTHON "$MODEL_ROOT/preprocessing/step7_update_train_config.py" || _fail_preprocess
 
 echo ""
 echo "Preprocessing complete."

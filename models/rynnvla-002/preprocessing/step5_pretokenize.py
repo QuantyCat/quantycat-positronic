@@ -3,7 +3,7 @@ Step 5 — Pretokenize the dataset.
 
 Converts episode frames into discrete token .pkl files using the VQ-GAN
 image tokenizer and action/state discretization bins.
-Skips if tokens/vla_data/ already exists.
+Pretokenizes each available split into tokens/vla_data/<split>/.
 
 Run from repo root:
     python3 models/rynnvla-002/preprocessing/pretokenize.py
@@ -12,6 +12,7 @@ Run from repo root:
 import os
 import sys
 import subprocess
+from glob import glob
 import yaml
 
 CONFIG_PATH = "models/rynnvla-002/config.yaml"
@@ -35,18 +36,36 @@ input_file  = os.path.realpath(os.path.join(
 ))
 output_dir  = os.path.join(work_dir, "tokens", "vla_data")
 tokenizer   = os.path.join(rynnvla_repo, "ckpts", "chameleon", "base_model")
-
-if os.path.isdir(output_dir):
-    print(f"Tokens already exist at {output_dir} — skipping. Delete to rerun.")
-    sys.exit(0)
-
 script = os.path.join(rynnvla_repo, "data_lerobot", "pretoken_lerobot_state.py")
-result = subprocess.run(
-    [sys.executable, script,
-     "--input_file",    input_file,
-     "--output_dir",    output_dir,
-     "--resolution",    str(resolution),
-     "--tokenizer_path", tokenizer],
-    cwd=os.path.join(rynnvla_repo, "data_lerobot"),
+conversation_pattern = os.path.join(
+    work_dir,
+    "conversations",
+    f"libero_{label}_his_{his}_*_img_state_abs_ck_1_{resolution}.json",
 )
-sys.exit(result.returncode)
+conversation_files = sorted(glob(conversation_pattern))
+
+if not conversation_files:
+    if not os.path.isfile(input_file):
+        print(f"ERROR: no conversation files found matching {conversation_pattern}")
+        sys.exit(1)
+    conversation_files = [input_file]
+
+os.makedirs(output_dir, exist_ok=True)
+
+for conv_path in conversation_files:
+    split_name = os.path.basename(conv_path).split(f"libero_{label}_his_{his}_", 1)[1].split("_img_state_abs_ck_1_", 1)[0]
+    split_output_dir = os.path.join(output_dir, split_name)
+    if os.path.isdir(split_output_dir):
+        print(f"Tokens already exist at {split_output_dir} — skipping {split_name}. Delete to rerun.")
+        continue
+
+    result = subprocess.run(
+        [sys.executable, script,
+         "--input_file", conv_path,
+         "--output_dir", split_output_dir,
+         "--resolution", str(resolution),
+         "--tokenizer_path", tokenizer],
+        cwd=os.path.join(rynnvla_repo, "data_lerobot"),
+    )
+    if result.returncode != 0:
+        sys.exit(result.returncode)

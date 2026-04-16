@@ -4,7 +4,7 @@ models/rynnvla-002/preprocessing/verify.py
 
 Checks:
   - training_data/ exists and has the expected episode structure
-  - conversations JSON exists and is well-formed
+  - conversation JSON split files exist and are well-formed
   - All image, action, and state files referenced in the JSON exist on disk
   - Action chunk sizes match config
   - Image counts match config (his * 2 cameras)
@@ -17,6 +17,7 @@ import json
 import os
 import random
 import sys
+from glob import glob
 
 import yaml
 
@@ -63,60 +64,63 @@ def main():
 
     # --- Check conversations JSON ---
     print("\n=== Step 2: conversations JSON ===")
-    conv_file = os.path.join(work_dir, "conversations",
-                             f"libero_{task_label}_his_{his}_train_img_state_abs_ck_1_{resolution}.json")
+    pattern = os.path.join(
+        work_dir,
+        "conversations",
+        f"libero_{task_label}_his_{his}_*_img_state_abs_ck_1_{resolution}.json",
+    )
+    conv_files = sorted(glob(pattern))
 
-    if not check(os.path.exists(conv_file), f"{conv_file} does not exist"):
+    if not check(bool(conv_files), f"no conversation JSON files found matching {pattern}"):
         errors += 1
         print(f"\nTotal errors: {errors}")
         sys.exit(1 if errors else 0)
-
-    with open(conv_file) as f:
-        convs = json.load(f)
-
-    print(f"  Total conversations: {len(convs)}")
-
-    # Sample up to 200 random entries for file existence checks
-    sample = random.sample(convs, min(200, len(convs)))
+    total_conversations = 0
+    total_samples_checked = 0
     missing_files = 0
     malformed = 0
 
-    for i, conv in enumerate(sample):
-        # Check action token count
-        gpt_value = conv["conversations"][1]["value"]
-        action_token_count = gpt_value.count("<|action|>")
-        if not check(action_token_count == chunk_size,
-                     f"entry has {action_token_count} action tokens, expected {chunk_size}"):
-            malformed += 1
+    for conv_file in conv_files:
+        with open(conv_file) as f:
+            convs = json.load(f)
 
-        # Check image count (his * 2 cameras)
-        expected_images = his * 2
-        if not check(len(conv["image"]) == expected_images,
-                     f"entry has {len(conv['image'])} images, expected {expected_images} (his={his} * 2 cameras)"):
-            malformed += 1
+        print(f"  {os.path.basename(conv_file)}: {len(convs)} conversations")
+        total_conversations += len(convs)
 
-        # Check image files exist
-        for img_path in conv["image"]:
-            if not os.path.exists(img_path):
+        sample = random.sample(convs, min(200, len(convs)))
+        total_samples_checked += len(sample)
+
+        for conv in sample:
+            gpt_value = conv["conversations"][1]["value"]
+            action_token_count = gpt_value.count("<|action|>")
+            if not check(action_token_count == chunk_size,
+                         f"entry has {action_token_count} action tokens, expected {chunk_size}"):
+                malformed += 1
+
+            expected_images = his * 2
+            if not check(len(conv["image"]) == expected_images,
+                         f"entry has {len(conv['image'])} images, expected {expected_images} (his={his} * 2 cameras)"):
+                malformed += 1
+
+            for img_path in conv["image"]:
+                if not os.path.exists(img_path):
+                    missing_files += 1
+                    if missing_files <= 5:
+                        print(f"  FAIL: missing image: {img_path}")
+
+            if not check(len(conv["action"]) == chunk_size,
+                         f"entry has {len(conv['action'])} action files, expected {chunk_size}"):
+                malformed += 1
+            for action_path in conv["action"]:
+                if not os.path.exists(action_path):
+                    missing_files += 1
+                    if missing_files <= 5:
+                        print(f"  FAIL: missing action: {action_path}")
+
+            if not os.path.exists(conv["state"]):
                 missing_files += 1
                 if missing_files <= 5:
-                    print(f"  FAIL: missing image: {img_path}")
-
-        # Check action files exist
-        if not check(len(conv["action"]) == chunk_size,
-                     f"entry has {len(conv['action'])} action files, expected {chunk_size}"):
-            malformed += 1
-        for action_path in conv["action"]:
-            if not os.path.exists(action_path):
-                missing_files += 1
-                if missing_files <= 5:
-                    print(f"  FAIL: missing action: {action_path}")
-
-        # Check state file exists
-        if not os.path.exists(conv["state"]):
-            missing_files += 1
-            if missing_files <= 5:
-                print(f"  FAIL: missing state: {conv['state']}")
+                    print(f"  FAIL: missing state: {conv['state']}")
 
     if missing_files > 5:
         print(f"  ... and {missing_files - 5} more missing files")
@@ -125,8 +129,8 @@ def main():
 
     # --- Summary ---
     print("\n=== Summary ===")
-    print(f"  Conversations:   {len(convs)}")
-    print(f"  Sample checked:  {len(sample)}")
+    print(f"  Conversations:   {total_conversations}")
+    print(f"  Sample checked:  {total_samples_checked}")
     print(f"  Missing files:   {missing_files}")
     print(f"  Malformed:       {malformed}")
     print(f"  Total errors:    {errors}")

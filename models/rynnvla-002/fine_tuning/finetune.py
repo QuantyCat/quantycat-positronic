@@ -33,12 +33,13 @@ epochs         = config["epochs"]
 lr             = config["lr"]
 min_lr         = config["min_lr"]
 clip_grad      = config["clip_grad"]
-z_loss_weight  = config["z_loss_weight"]
+z_loss_weight  = config["train_z_loss_weight"]
 lora_r         = config["lora_r"]
 lora_alpha     = config["lora_alpha"]
 ckpt_max_keep  = config["ckpt_max_keep"]
 save_interval  = config["save_interval"]
 fresh_start    = config.get("fresh_start", False)
+run_validation = bool(config.get("run_validation", False))
 
 home         = os.path.expanduser("~")
 rynnvla_repo = os.path.join(home, "RynnVLA-002", "rynnvla-002")
@@ -48,12 +49,22 @@ if not os.path.isdir(rynnvla_repo):
     sys.exit(1)
 
 # data_config is written by step7_update_train_config.py — derived from his/chunk_size/resolution
-data_config_name = f"his_{his}_third_view_wrist_w_state_{chunk_size}_{resolution}_pretokenize.yaml"
-data_config  = os.path.join(rynnvla_repo, "configs", "lerobot", data_config_name)
-if not os.path.isfile(data_config):
-    print(f"ERROR: data config not found at {data_config}")
+data_config_train_name = f"his_{his}_third_view_wrist_w_state_{chunk_size}_{resolution}_pretokenize.yaml"
+data_config_val_ind_name = f"his_{his}_third_view_wrist_w_state_{chunk_size}_{resolution}_pretokenize_val_ind.yaml"
+data_config_val_ood_name = f"his_{his}_third_view_wrist_w_state_{chunk_size}_{resolution}_pretokenize_val_ood.yaml"
+data_config_train = os.path.join(rynnvla_repo, "configs", "lerobot", data_config_train_name)
+data_config_val_ind = os.path.join(rynnvla_repo, "configs", "lerobot", data_config_val_ind_name)
+data_config_val_ood = os.path.join(rynnvla_repo, "configs", "lerobot", data_config_val_ood_name)
+if not os.path.isfile(data_config_train):
+    print(f"ERROR: data config not found at {data_config_train}")
     print("Run preprocessing (step7) first, or check that his/chunk_size/resolution in config.yaml match.")
     sys.exit(1)
+if run_validation and not os.path.isfile(data_config_val_ind):
+    print(f"ERROR: validation is enabled but val config was not found at {data_config_val_ind}")
+    print("Re-run preprocessing to build split validation configs, or disable run_validation.")
+    sys.exit(1)
+if not os.path.isfile(data_config_val_ood):
+    data_config_val_ood = data_config_val_ind if os.path.isfile(data_config_val_ind) else data_config_train
 
 init_from    = os.path.join(rynnvla_repo, "ckpts", "starting_point")
 tokenizer    = os.path.join(rynnvla_repo, "ckpts", "chameleon", "base_model")
@@ -74,9 +85,11 @@ os.makedirs(output_dir, exist_ok=True)
 
 print(f"Starting fine-tune")
 print(f"  Config:    {CONFIG_PATH}")
-print(f"  Data:      {data_config}")
+print(f"  Train data: {data_config_train}")
+if run_validation:
+    print(f"  Val data:   {data_config_val_ind}")
 print(f"  Output:    {output_dir}")
-print(f"  fresh_start={fresh_start}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}")
+print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}")
 print()
 
 # Trainable params: lora_weight_ + action_head + lm_head
@@ -99,7 +112,7 @@ cmd = [
     "--master_addr=127.0.0.1",
     "--master_port=16666",
     train_script,
-    "--train_only", "True",
+    "--train_only", "False" if run_validation else "True",
     "--disable_length_clustering",
     "--init_from", init_from,
     "--tokenizer_path", tokenizer,
@@ -115,9 +128,9 @@ cmd = [
     "--clip_grad", str(clip_grad),         # from config.yaml
     "--action_dim", str(action_dim),
     "--time_horizon", str(chunk_size),
-    "--data_config_train", data_config,
-    "--data_config_val_ind", data_config,
-    "--data_config_val_ood", data_config,
+    "--data_config_train", data_config_train,
+    "--data_config_val_ind", data_config_val_ind if run_validation else data_config_train,
+    "--data_config_val_ood", data_config_val_ood if run_validation else data_config_train,
     "--num_workers", str(num_workers),
     "--output_dir", output_dir,
     "--checkpointing",
