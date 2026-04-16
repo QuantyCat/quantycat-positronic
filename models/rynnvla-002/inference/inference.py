@@ -97,6 +97,20 @@ def _obs_to_solver_inputs(
     return front, wrist, state
 
 
+def _lerobot_state_to_model_state(state_raw: np.ndarray) -> np.ndarray:
+    """Convert live LeRobot state values into the model-state convention.
+
+    For this SO-101 pipeline, the dataset convention used by the model is:
+    - joints 0..4 stored in radians
+    - gripper stored as the same deg2rad-transformed scalar convention used
+      during dataset creation
+
+    The live robot observation is converted at this boundary so the solver
+    always sees the same convention as the training data.
+    """
+    return np.deg2rad(np.asarray(state_raw, dtype=np.float32))
+
+
 def _action_vector_to_robot_dict(vec: np.ndarray) -> dict[str, float]:
     v = np.asarray(vec, dtype=np.float64).reshape(-1)
     if v.size != len(_MOTOR_NAMES):
@@ -315,19 +329,18 @@ def main() -> None:
             )
             PILImage.fromarray(front).save(img_out / "front.jpg")
             PILImage.fromarray(wrist).save(img_out / "wrist.jpg")
-            # Training data uses radians; robot.get_observation() returns degrees.
-            state_rad = np.deg2rad(state)
+            state_model = _lerobot_state_to_model_state(state)
             action_chunk = solver.get_action_wrist_action_head_state(
                 front_image=front,
                 wrist_image=wrist,
-                state=state_rad,
+                state=state_model,
                 prompt=args.prompt,
             )
             deltas = np.asarray(action_chunk)
             if deltas.ndim == 1:
                 deltas = deltas[np.newaxis, :]  # ensure (T, 6)
 
-            print(f"[chunk] shape={deltas.shape}  deltas[0]={np.round(deltas[0], 4)}  state_rad={np.round(state_rad, 4)}")
+            print(f"[chunk] shape={deltas.shape}  deltas[0]={np.round(deltas[0], 4)}  state_model={np.round(state_model, 4)}")
 
             # Receding-horizon control: predict a chunk, execute only the configured
             # prefix, then re-read cameras and re-plan.
@@ -337,8 +350,8 @@ def main() -> None:
                 _, _, state = _obs_to_solver_inputs(
                     obs, args.front_camera_key, args.wrist_camera_key
                 )
-                state_rad = np.deg2rad(state)
-                cmd_rad = _delta_to_absolute_action(delta, state_rad)
+                state_model = _lerobot_state_to_model_state(state)
+                cmd_rad = _delta_to_absolute_action(delta, state_model)
                 cmd = {k: float(np.rad2deg(v)) for k, v in cmd_rad.items()}
                 print(f"  [step {step}] delta={np.round(delta, 4)}  cmd_deg={[round(v,2) for v in cmd.values()]}")
                 robot.send_action(cmd)
