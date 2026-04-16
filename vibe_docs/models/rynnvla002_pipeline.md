@@ -87,6 +87,7 @@ sudo apt install build-essential python3-dev
 ## Steps 1–7 — Preprocessing
 
 ```bash
+tmux new -s preprocess / tmux attach -t preprocess
 source models/rynnvla-002/run_scripts/setup.sh
 source models/rynnvla-002/run_scripts/preprocess.sh
 ```
@@ -115,7 +116,7 @@ Workers split frames evenly and run in parallel (`num_gpus × 16` workers). Logs
 Run in a tmux session so it keeps going if you disconnect:
 
 ```bash
-tmux new -s train
+tmux new -s train / tmux attach -t train
 source models/rynnvla-002/run_scripts/setup.sh
 bash models/rynnvla-002/run_scripts/finetune.sh
 ```
@@ -205,7 +206,7 @@ Output: `<training_output>/<task_label>_<robot>/resources.csv`
 ## Push checkpoint to S3
 
 ```bash
-tmux attach -t upload
+tmux new -s upload / tmux attach -t upload
 aws s3 cp quantycat-positronic/my_data/training_pipeline/fine_tuning/screwdriver_so101/<epoch> s3://quantycat-positronic/screwdriver_so101/<date_epoch> --recursive
 ```
 
