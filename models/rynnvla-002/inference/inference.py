@@ -339,6 +339,10 @@ def main() -> None:
             deltas = np.asarray(action_chunk)
             if deltas.ndim == 1:
                 deltas = deltas[np.newaxis, :]  # ensure (T, 6)
+            if not np.isfinite(deltas).all():
+                print("[safety] Non-finite action chunk detected. Aborting before sending any robot command.")
+                print(f"[safety] action_chunk={deltas}")
+                break
 
             print(f"[chunk] shape={deltas.shape}  deltas[0]={np.round(deltas[0], 4)}  state_model={np.round(state_model, 4)}")
 
@@ -352,6 +356,10 @@ def main() -> None:
                 )
                 state_model = _lerobot_state_to_model_state(state)
                 cmd_rad = _delta_to_absolute_action(delta, state_model)
+                if not all(np.isfinite(v) for v in cmd_rad.values()):
+                    print("[safety] Non-finite cmd_rad detected. Aborting before robot.send_action().")
+                    print(f"[safety] delta={delta}  state_model={state_model}  cmd_rad={cmd_rad}")
+                    break
                 cmd = {k: float(np.rad2deg(v)) for k, v in cmd_rad.items()}
                 print(f"  [step {step}] delta={np.round(delta, 4)}  cmd_deg={[round(v,2) for v in cmd.values()]}")
                 robot.send_action(cmd)
