@@ -10,7 +10,7 @@ data. It:
 
 Example:
 
-  conda run -n rynnvla002 python models/rynnvla-002/inference/episode_step_eval.py \
+  conda run -n rynnvla002 python models/rynnvla-002/inference/eval/episode_step_eval.py \
     --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
     --step 120 \
     --checkpoint /home/caroline/old_checkpoints/04142026_epoch3 \
@@ -34,7 +34,7 @@ _DEFAULT_CONFIG = "models/rynnvla-002/config.yaml"
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[4]
 
 
 def _load_positronic_config(config_path: Path) -> dict[str, Any]:

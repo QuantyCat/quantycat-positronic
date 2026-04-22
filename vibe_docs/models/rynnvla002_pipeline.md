@@ -239,6 +239,51 @@ checkpoint: /home/caroline/Desktop/fine_tuning/screwdriver_so101/<your-checkpoin
 python3 models/rynnvla-002/inference/inference.py
 ```
 
+4. Evaluating Pred vs. Actual
+
+Use the offline eval scripts when you want to compare a checkpoint's predicted action chunk against the saved ground-truth action chunk from a real training episode.
+
+Recommended default: `episode_batch_eval.py`
+
+- best for answering: "overall, for each joint, how close is predicted vs actual?"
+- evaluates many timesteps from one episode
+- compares the full predicted chunk against the full saved GT chunk
+- writes JSON plus plots under `<checkpoint>/episode_batch_eval_logs/`
+- current plots are:
+  - `*_scatter_all_chunks.png` — all `(gt, pred)` points for each joint across all episode steps and all chunk positions
+  - `*_error_heatmap.png` — absolute error by episode step and chunk position, one panel per joint
+  - `*_summary.png` — per-joint MAE, signed bias, correlation, and sign agreement
+
+Example:
+
+```bash
+conda run -n rynnvla002 python models/rynnvla-002/inference/eval/episode_batch_eval.py \
+  --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
+  --checkpoint /home/caroline/quantycat-positronic/my_data/training_pipeline/fine_tuning/screwdriver_so101/epoch3 \
+  --rynnvla-repo /home/caroline/RynnVLA-002/rynnvla-002 \
+  --start-step 100 \
+  --max-steps 50 \
+  --save-json \
+  --save-plots
+```
+
+If `--save-plots` fails with `No module named 'matplotlib'`, install it in the active env:
+
+```bash
+conda install -n rynnvla002 matplotlib -y
+```
+
+Other eval scripts under `models/rynnvla-002/inference/eval/`:
+
+- `episode_step_eval.py`
+  - single-step version of the same idea
+  - best when you want to inspect one exact timestep in detail, including the specific input images, state, full GT chunk, full predicted chunk, and raw diff
+  - still useful as a debugging helper and shared utility module for `episode_batch_eval.py`
+
+- `compare_checkpoints_episode.py`
+  - runs the same episode slice through multiple checkpoints
+  - useful when comparing epochs or ablations side by side on the same real data window
+
 ### Forked RynnVLA-002 changes to remember
 
 The local fork at `~/RynnVLA-002/` is not a small patch on top of official RynnVLA-002. The most important differences for SO-101 debugging are:

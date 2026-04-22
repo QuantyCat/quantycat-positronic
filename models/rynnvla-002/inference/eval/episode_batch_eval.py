@@ -13,7 +13,7 @@ training episode and summarizes:
 
 Example:
 
-  conda run -n rynnvla002 python models/rynnvla-002/inference/episode_batch_eval.py \
+  conda run -n rynnvla002 python models/rynnvla-002/inference/eval/episode_batch_eval.py \
     --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
     --checkpoint /home/caroline/old_checkpoints/04152025_epoch4 \
     --rynnvla-repo /home/caroline/RynnVLA-002/rynnvla-002 \
@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -377,53 +378,98 @@ def _save_plots(
 
     out_dir.mkdir(parents=True, exist_ok=True)
     step_axis = np.asarray(steps, dtype=np.int32)
-    pred_first = np.asarray(pred_steps[:, 0, :], dtype=np.float32)
-    gt_first = np.asarray(gt_steps[:, 0, :], dtype=np.float32)
+    chunk_axis = np.arange(pred_steps.shape[1], dtype=np.int32)
+    abs_err = np.abs(pred_steps - gt_steps).astype(np.float32)
     saved_paths: list[str] = []
 
-    fig, axes = plt.subplots(len(_JOINT_LABELS), 1, figsize=(12, 2.6 * len(_JOINT_LABELS)), sharex=True)
-    if len(_JOINT_LABELS) == 1:
-        axes = [axes]
-    for idx, joint in enumerate(_JOINT_LABELS):
-        ax = axes[idx]
-        ax.plot(step_axis, gt_first[:, idx], label="gt", linewidth=1.8, color="#1f77b4")
-        ax.plot(step_axis, pred_first[:, idx], label="pred", linewidth=1.8, color="#d62728", alpha=0.9)
-        ax.axhline(0.0, color="#999999", linewidth=0.8, linestyle="--")
-        ax.set_ylabel(joint)
-        ax.grid(True, alpha=0.25)
-        if idx == 0:
-            ax.legend(loc="upper right")
-    axes[-1].set_xlabel("episode step")
-    fig.suptitle("First action step over time: GT vs Pred", fontsize=14)
-    fig.tight_layout(rect=(0, 0, 1, 0.98))
-    time_path = out_dir / f"{stem}_timeseries.png"
-    fig.savefig(time_path, dpi=180)
-    plt.close(fig)
-    saved_paths.append(str(time_path))
+    n_joints = len(_JOINT_LABELS)
+    n_cols = min(3, n_joints)
+    n_rows = int(math.ceil(n_joints / n_cols))
 
-    fig, axes = plt.subplots(2, 3, figsize=(14, 8))
-    axes_flat = axes.flatten()
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(4.8 * n_cols, 4.0 * n_rows))
+    axes_flat = np.atleast_1d(axes).ravel()
     for idx, joint in enumerate(_JOINT_LABELS):
         ax = axes_flat[idx]
-        gt_vals = gt_first[:, idx]
-        pred_vals = pred_first[:, idx]
-        ax.scatter(gt_vals, pred_vals, s=18, alpha=0.75, color="#2ca02c")
+        gt_vals = gt_steps[:, :, idx].reshape(-1)
+        pred_vals = pred_steps[:, :, idx].reshape(-1)
+        ax.scatter(gt_vals, pred_vals, s=14, alpha=0.4, color="#2ca02c")
         low = float(min(np.min(gt_vals), np.min(pred_vals)))
         high = float(max(np.max(gt_vals), np.max(pred_vals)))
         if abs(high - low) <= 1e-12:
             low -= 1e-3
             high += 1e-3
         ax.plot([low, high], [low, high], linestyle="--", linewidth=1.0, color="#444444")
-        ax.set_title(joint)
+        corr = _corrcoef_1d(pred_vals, gt_vals)
+        mae = float(np.mean(np.abs(pred_vals - gt_vals)))
+        ax.set_title(f"{joint}\nMAE={mae:.4f} corr={corr:.3f}")
         ax.set_xlabel("gt")
         ax.set_ylabel("pred")
         ax.grid(True, alpha=0.25)
-    fig.suptitle("First action step scatter: GT vs Pred", fontsize=14)
+    for ax in axes_flat[n_joints:]:
+        ax.set_visible(False)
+    fig.suptitle("All chunk positions: GT vs Pred scatter", fontsize=14)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
-    scatter_path = out_dir / f"{stem}_scatter.png"
+    scatter_path = out_dir / f"{stem}_scatter_all_chunks.png"
     fig.savefig(scatter_path, dpi=180)
     plt.close(fig)
     saved_paths.append(str(scatter_path))
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5.2 * n_cols, 2.9 * n_rows), sharex=False, sharey=False)
+    axes_flat = axes.flatten()
+    for idx, joint in enumerate(_JOINT_LABELS):
+        ax = axes_flat[idx]
+        im = ax.imshow(
+            abs_err[:, :, idx].T,
+            aspect="auto",
+            origin="lower",
+            interpolation="nearest",
+            extent=(step_axis[0] - 0.5, step_axis[-1] + 0.5, chunk_axis[0] - 0.5, chunk_axis[-1] + 0.5),
+            cmap="magma",
+        )
+        mae = float(np.mean(abs_err[:, :, idx]))
+        max_err = float(np.max(abs_err[:, :, idx]))
+        ax.set_title(f"{joint}\nMAE={mae:.4f} max={max_err:.4f}")
+        ax.set_xlabel("episode step")
+        ax.set_ylabel("chunk pos")
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    for ax in axes_flat[n_joints:]:
+        ax.set_visible(False)
+    fig.suptitle("Absolute error heatmap by joint", fontsize=14)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    heatmap_path = out_dir / f"{stem}_error_heatmap.png"
+    fig.savefig(heatmap_path, dpi=180)
+    plt.close(fig)
+    saved_paths.append(str(heatmap_path))
+
+    joint_mae = np.mean(abs_err, axis=(0, 1))
+    joint_bias = np.mean(pred_steps - gt_steps, axis=(0, 1))
+    joint_corr = np.asarray([_corrcoef_1d(pred_steps[:, :, idx].reshape(-1), gt_steps[:, :, idx].reshape(-1)) for idx in range(n_joints)], dtype=np.float32)
+    joint_sign_agreement = np.asarray(
+        [_sign_agreement(pred_steps[:, :, idx].reshape(-1), gt_steps[:, :, idx].reshape(-1), 1e-6)[0] for idx in range(n_joints)],
+        dtype=np.float32,
+    )
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    metric_specs = [
+        ("MAE", joint_mae, "#d62728"),
+        ("Signed bias", joint_bias, "#9467bd"),
+        ("Correlation", joint_corr, "#2ca02c"),
+        ("Sign agreement", joint_sign_agreement, "#1f77b4"),
+    ]
+    for ax, (title, values, color) in zip(axes.ravel(), metric_specs):
+        ax.bar(_JOINT_LABELS, values, color=color, alpha=0.9)
+        ax.set_title(title)
+        ax.grid(True, axis="y", alpha=0.25)
+        ax.tick_params(axis="x", rotation=25)
+        if title in {"Correlation", "Sign agreement"}:
+            ax.set_ylim(-1.0 if title == "Correlation" else 0.0, 1.0)
+        ax.axhline(0.0, color="#777777", linewidth=0.8)
+    fig.suptitle("Per-joint summary across all chunk positions", fontsize=14)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    summary_path = out_dir / f"{stem}_summary.png"
+    fig.savefig(summary_path, dpi=180)
+    plt.close(fig)
+    saved_paths.append(str(summary_path))
 
     return saved_paths
 
