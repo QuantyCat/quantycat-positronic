@@ -31,6 +31,7 @@ from typing import Any
 
 import numpy as np
 from PIL import Image as PILImage
+import torch
 import yaml
 
 # Joint order must match LeRobot dataset `observation.state` for SO-101 follower demos.
@@ -330,12 +331,13 @@ def main() -> None:
             PILImage.fromarray(front).save(img_out / "front.jpg")
             PILImage.fromarray(wrist).save(img_out / "wrist.jpg")
             state_model = _lerobot_state_to_model_state(state)
-            action_chunk = solver.get_action_wrist_action_head_state(
-                front_image=front,
-                wrist_image=wrist,
-                state=state_model,
-                prompt=args.prompt,
-            )
+            with torch.inference_mode():
+                action_chunk = solver.get_action_wrist_action_head_state(
+                    front_image=front,
+                    wrist_image=wrist,
+                    state=state_model,
+                    prompt=args.prompt,
+                )
             deltas = np.asarray(action_chunk)
             if deltas.ndim == 1:
                 deltas = deltas[np.newaxis, :]  # ensure (T, 6)
