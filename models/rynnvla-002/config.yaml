@@ -51,5 +51,5 @@ action_steps: 5
 execute_steps_per_inference: 2
 deterministic_crop: true
 mask_image_logits: false
-dropout: 0.0
-inference_z_loss_weight: 0.0
+dropout: 0.08
+inference_z_loss_weight: 1e-3
