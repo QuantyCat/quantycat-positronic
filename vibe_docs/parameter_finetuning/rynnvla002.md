@@ -4,25 +4,25 @@
 
 Correction on 2026-04-16: the local `config.yaml` had duplicate `z_loss_weight` keys, and the later inference value (`0.0`) overrode the intended training value during the latest run. The epoch-4 run therefore launched with `z_loss_weight=0.0`, not `1e-3`.
 
-| Metric | Run 1 (failed) | Run 2 epoch 3 final | Run 3 epoch 4 final |
+| Metric | Run 1 (failed) | Run 2 epoch 3 final | Run 3 epoch 4 final | Run 4 epoch 3 final |
 |---|---|---|---|
-| `closs` | 14.3 (stuck) | 3.10 | 2.80 |
-| `acc_action` | 0.0000 | ~0.183 | ~0.252 |
-| `l1_loss_action` | — | ~0.544 | ~0.433 |
-| `grad_norm` | ~33 | ~32 | ~30 |
-| `lr` (final) | 0.000002 | 0.000005 | 0.000010 |
-| `epochs` | 4 | 4 | 5 |
+| `closs` | 14.3 (stuck) | 3.10 | 2.80 | 2.56 |
+| `acc_action` | 0.0000 | ~0.183 | ~0.252 | ~0.270 |
+| `l1_loss_action` | — | ~0.544 | ~0.433 | ~0.348 |
+| `grad_norm` | ~33 | ~32 | ~30 | ~30.7 |
+| `lr` (final) | 0.000002 | 0.000005 | 0.000010 | 0.000010 |
+| `epochs` | 4 | 4 | 5 | 4 |
 
 ## Parameter Changes Per Run
 
-| Parameter | Run 1 | Run 2 | Run 3 |
+| Parameter | Run 1 | Run 2 | Run 3 | Run 4 |
 |---|---|---|---|
-| `lr` | `2e-6` | `5e-5` | `1e-4` |
-| `min_lr` | `2e-7` | `5e-6` | `1e-5` |
-| `clip_grad` | `4.0` | `16.0` | `24.0` |
-| `accum_iter` | `1` | `4` | `4` |
-| `z_loss_weight` | `1e-5` | `0.0` | `0.0` |
-| `epochs` | `4` | `4` | `5` |
+| `lr` | `2e-6` | `5e-5` | `1e-4` | `1e-4` |
+| `min_lr` | `2e-7` | `5e-6` | `1e-5` | `1e-5` |
+| `clip_grad` | `4.0` | `16.0` | `24.0` | `24.0` |
+| `accum_iter` | `1` | `4` | `4` | `4` |
+| `z_loss_weight` | `1e-5` | `0.0` | `0.0` | `1e-3` |
+| `epochs` | `4` | `4` | `5` | `4` |
 
 ## What Changed and Why
 
@@ -38,6 +38,10 @@ Correction on 2026-04-16: the local `config.yaml` had duplicate `z_loss_weight` 
 - **min_lr** `5e-6 → 1e-5`: Keeps 10:1 ratio to lr
 - **clip_grad** `16.0 → 24.0`: More headroom given stable grad_norm — effective step at epoch 0 ~5.5e-5 vs ~1.8e-5 previously
 - **epochs** `4 → 5`: Model still improving at end of run 2; cosine schedule was hitting min_lr too early
+
+### Run 3 → Run 4
+- **epochs** `5 → 4`: The saved `epoch3/args.json` shows the rerun was launched as a 4-epoch job and the kept checkpoint is the epoch-3 final
+- **z_loss_weight** `0.0 → 1e-3`: This rerun restored the intended training-side z-loss value in the launched args
 
 ## Observations
 
