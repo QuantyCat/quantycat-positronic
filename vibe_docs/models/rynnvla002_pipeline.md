@@ -216,6 +216,13 @@ Verify:
 aws s3 ls s3://quantycat-positronic/screwdriver_so101/
 ```
 
+Download from S3: 
+
+```bash
+mkdir <epoch>
+aws s3 cp s3://quantycat-positronic/screwdriver_so101/<epoch> . --recursive
+```
+
 ---
 
 ## Inference on SO-101
