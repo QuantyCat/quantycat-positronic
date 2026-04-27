@@ -9,7 +9,7 @@ robot: so101
 chunk_size: 5
 action_dim: 6
 resolution: 256
-his: 2
+his: 1
 
 # Train/validation split
 run_validation: true
@@ -24,6 +24,7 @@ lr: 0.0001
 min_lr: 0.00001
 clip_grad: 24.0
 train_z_loss_weight: 1e-3
+loss_ct_weights: 10
 fresh_start: true
 ckpt_max_keep: 3
 save_interval: 2000
@@ -46,7 +47,7 @@ gpu: 0
 control_period_s: 0.05
 max_steps: 0
 max_seq_len: 4096
-his_mode: 2h_1a_img_both_wrist_state
+his_mode: 1h_1a_img_only_state
 action_steps: 5
 execute_steps_per_inference: 2
 deterministic_crop: true

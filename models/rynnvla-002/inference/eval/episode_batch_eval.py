@@ -64,14 +64,23 @@ def _parse_args() -> argparse.Namespace:
         help="Treat absolute values <= this threshold as zero for sign-agreement reporting.",
     )
     parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help=(
+            "Directory for JSON/PNG/log outputs. Default: "
+            "<training_output>/<task_label>_<robot>/model_eval_reports/<checkpoint_name>/"
+        ),
+    )
+    parser.add_argument(
         "--save-json",
         action="store_true",
-        help="Write a JSON report under <checkpoint>/episode_batch_eval_logs/",
+        help="Write a JSON report under the resolved output directory.",
     )
     parser.add_argument(
         "--save-plots",
         action="store_true",
-        help="Write PNG plots under <checkpoint>/episode_batch_eval_logs/.",
+        help="Write PNG plots under the resolved output directory.",
     )
     return parser.parse_args()
 
@@ -85,12 +94,23 @@ def _configure_env(root: Path, cfg: dict[str, Any]) -> Path:
     return work_dir
 
 
-def _make_solver_args(args: argparse.Namespace, cfg: dict[str, Any], ckpt_path: Path) -> argparse.Namespace:
+def _resolve_output_dir(root: Path, args: argparse.Namespace, cfg: dict[str, Any], ckpt_path: Path) -> Path:
+    if args.output_dir:
+        return Path(args.output_dir).expanduser().resolve()
+
+    training_output = Path(cfg.get("training_output", "training_output"))
+    if not training_output.is_absolute():
+        training_output = (root / training_output).resolve()
+    task_dir = f"{cfg['task_label']}_{cfg['robot']}"
+    return training_output / task_dir / "model_eval_reports" / ckpt_path.name
+
+
+def _make_solver_args(args: argparse.Namespace, cfg: dict[str, Any], ckpt_path: Path, output_dir: Path) -> argparse.Namespace:
     import argparse as _argparse
 
     return _argparse.Namespace(
         resume_path=str(ckpt_path),
-        output_dir=str((ckpt_path / "episode_batch_eval_logs").resolve()),
+        output_dir=str(output_dir.resolve()),
         device=args.gpu if args.gpu is not None else cfg["gpu"],
         action_dim=cfg["action_dim"],
         time_horizon=cfg["chunk_size"],
@@ -158,6 +178,16 @@ def _joint_table(values: np.ndarray) -> dict[str, float | None]:
         value = float(flat[idx])
         result[name] = None if np.isnan(value) else value
     return result
+
+
+def _distribution_table(values: np.ndarray) -> dict[str, dict[str, float]]:
+    values = np.asarray(values, dtype=np.float32)
+    return {
+        "mean": _joint_table(np.mean(values, axis=0)),
+        "std": _joint_table(np.std(values, axis=0)),
+        "min": _joint_table(np.min(values, axis=0)),
+        "max": _joint_table(np.max(values, axis=0)),
+    }
 
 
 def _corrcoef_1d(x: np.ndarray, y: np.ndarray) -> float:
@@ -290,6 +320,14 @@ def _summarize(pred_steps: np.ndarray, gt_steps: np.ndarray, sign_eps: float, mi
             "mean_abs_gt": _joint_table(per_joint_gt_abs_norm),
             "mean_abs_pred": _joint_table(per_joint_pred_abs_norm),
             "magnitude_ratio": _joint_table(per_joint_mag_ratio_norm),
+        },
+        "normalized_distribution": {
+            "pred": _distribution_table(pred_norm),
+            "gt": _distribution_table(gt_norm),
+        },
+        "raw_distribution": {
+            "pred": _distribution_table(pred_flat),
+            "gt": _distribution_table(gt_flat),
         },
         "convention_checks": convention_checks,
         "normalized_convention_checks": normalized_convention_checks,
@@ -492,7 +530,8 @@ def main() -> None:
     _configure_env(root, cfg)
     ckpt_path = step_eval._resolve_checkpoint(args, cfg)
     step_eval._ensure_rynnvla_on_path(args.rynnvla_repo.strip() or None)
-    solver_args = _make_solver_args(args, cfg, ckpt_path)
+    output_dir = _resolve_output_dir(root, args, cfg, ckpt_path)
+    solver_args = _make_solver_args(args, cfg, ckpt_path, output_dir)
 
     episode_dir = Path(args.episode).expanduser().resolve()
     his = int(cfg["his"])

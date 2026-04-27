@@ -34,6 +34,7 @@ lr             = config["lr"]
 min_lr         = config["min_lr"]
 clip_grad      = config["clip_grad"]
 z_loss_weight  = config["train_z_loss_weight"]
+loss_ct_weights = config["loss_ct_weights"]
 lora_r         = config["lora_r"]
 lora_alpha     = config["lora_alpha"]
 ckpt_max_keep  = config["ckpt_max_keep"]
@@ -83,6 +84,11 @@ else:
     print(f"  Auto-resuming from last checkpoint in: {output_dir}")
     resume_flags = []  # auto_resume=True is the training script default
 
+# Upstream defines `--train_only` as `type=bool`, so passing the literal string
+# "False" is parsed as True. Only pass it for true train-only runs; otherwise
+# rely on the upstream default False so validation actually runs.
+train_only_flags = [] if run_validation else ["--train_only", "True"]
+
 os.makedirs(output_dir, exist_ok=True)
 
 print(f"Starting fine-tune")
@@ -91,7 +97,7 @@ print(f"  Train data: {data_config_train}")
 if run_validation:
     print(f"  Val data:   {data_config_val_ind}")
 print(f"  Output:    {output_dir}")
-print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}")
+print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}  loss_ct_weights={loss_ct_weights}")
 print()
 
 # Trainable params: lora_weight_ + action_head + lm_head
@@ -114,7 +120,6 @@ cmd = [
     "--master_addr=127.0.0.1",
     "--master_port=16666",
     train_script,
-    "--train_only", "False" if run_validation else "True",
     "--disable_length_clustering",
     "--init_from", init_from,
     "--tokenizer_path", tokenizer,
@@ -140,11 +145,12 @@ cmd = [
     "--unmask_image_logits",
     "--dropout", "0.08",
     "--z_loss_weight", str(z_loss_weight), # from config.yaml
+    "--loss_ct_weights", str(loss_ct_weights),
     "--ckpt_max_keep", str(ckpt_max_keep),
     "--save_iteration_interval", str(save_interval),
     "--lora_r", str(lora_r),
     "--lora_alpha", str(lora_alpha),
-] + resume_flags
+] + train_only_flags + resume_flags
 
 log_path = os.path.join(output_dir, "output.log")
 print(f"  Log: {log_path}")
