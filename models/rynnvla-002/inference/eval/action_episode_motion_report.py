@@ -18,7 +18,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 JOINT_LABELS = ("joint_0", "joint_1", "joint_2", "joint_3", "joint_4", "gripper")
@@ -38,8 +37,25 @@ def _parse_args() -> argparse.Namespace:
         default=Path("training_output/screwdriver_so101/action_motion_report"),
         help="Output directory for PNG/HTML files.",
     )
+    parser.add_argument(
+        "--static-threshold",
+        type=float,
+        default=0.01,
+        help="Chunk arm mean absolute motion below this is counted as low-motion.",
+    )
+    parser.add_argument(
+        "--skip-plots",
+        action="store_true",
+        help="Skip regenerating PNG plots. Useful when matplotlib is unavailable.",
+    )
     parser.add_argument("--top-k", type=int, default=10)
     return parser.parse_args()
+
+
+def _import_pyplot():
+    import matplotlib.pyplot as plt
+
+    return plt
 
 
 def _load_chunk(action_dir: Path) -> np.ndarray:
@@ -65,19 +81,42 @@ def _load_episode_chunks(episode_dir: Path) -> tuple[np.ndarray, np.ndarray]:
     return np.asarray(steps, dtype=np.int32), np.stack(chunks, axis=0)
 
 
-def _episode_summary(episode: str, steps: np.ndarray, chunks: np.ndarray) -> dict[str, Any]:
+def _run_lengths(mask: np.ndarray) -> list[int]:
+    runs: list[int] = []
+    current = 0
+    for value in mask:
+        if value:
+            current += 1
+            continue
+        if current:
+            runs.append(current)
+            current = 0
+    if current:
+        runs.append(current)
+    return runs
+
+
+def _episode_summary(episode: str, steps: np.ndarray, chunks: np.ndarray, static_threshold: float) -> dict[str, Any]:
     arm = chunks[:, :, :-1]
     flat = chunks.reshape(-1, chunks.shape[-1])
     first = chunks[:, 0, :]
     arm_mean_by_chunk = np.mean(np.abs(arm), axis=(1, 2))
+    low_motion_mask = arm_mean_by_chunk < static_threshold
+    low_motion_runs = _run_lengths(low_motion_mask)
     return {
         "episode": episode,
         "num_chunks": int(chunks.shape[0]),
         "start_step": int(steps[0]),
         "end_step": int(steps[-1]),
         "arm_mean_abs": float(np.mean(np.abs(arm))),
+        "arm_p10_chunk_mean_abs": float(np.percentile(arm_mean_by_chunk, 10)),
         "arm_p90_chunk_mean_abs": float(np.percentile(arm_mean_by_chunk, 90)),
         "arm_max_abs": float(np.max(np.abs(arm))),
+        "arm_low_motion_threshold": float(static_threshold),
+        "arm_low_motion_chunk_fraction": float(np.mean(low_motion_mask)),
+        "arm_low_motion_run_count": int(len(low_motion_runs)),
+        "arm_low_motion_run_p95_chunks": float(np.percentile(low_motion_runs, 95)) if low_motion_runs else 0.0,
+        "arm_low_motion_run_max_chunks": int(max(low_motion_runs, default=0)),
         "joint_mean_abs": {name: float(np.mean(np.abs(flat[:, i]))) for i, name in enumerate(JOINT_LABELS)},
         "first_step_joint_mean_abs": {name: float(np.mean(np.abs(first[:, i]))) for i, name in enumerate(JOINT_LABELS)},
         "near_zero_fraction": {name: float(np.mean(np.abs(flat[:, i]) < 0.01)) for i, name in enumerate(JOINT_LABELS)},
@@ -85,6 +124,7 @@ def _episode_summary(episode: str, steps: np.ndarray, chunks: np.ndarray) -> dic
 
 
 def _plot_episode(out_path: Path, episode: str, steps: np.ndarray, chunks: np.ndarray) -> None:
+    plt = _import_pyplot()
     flat_mean_abs = np.mean(np.abs(chunks), axis=1)
     first = chunks[:, 0, :]
     arm_mean = np.mean(np.abs(chunks[:, :, :-1]), axis=(1, 2))
@@ -125,6 +165,7 @@ def _plot_episode(out_path: Path, episode: str, steps: np.ndarray, chunks: np.nd
 
 
 def _plot_overview(out_path: Path, summaries: list[dict[str, Any]]) -> None:
+    plt = _import_pyplot()
     episodes = [s["episode"].replace("episode_", "ep") for s in summaries]
     labels = list(JOINT_LABELS)
     values = np.asarray([[s["joint_mean_abs"][name] for name in labels] for s in summaries], dtype=np.float32)
@@ -155,15 +196,62 @@ def _plot_overview(out_path: Path, summaries: list[dict[str, Any]]) -> None:
     plt.close(fig)
 
 
-def _write_html(out_dir: Path, summaries: list[dict[str, Any]], top_k: int) -> None:
+def _plot_low_motion_overview(out_path: Path, summaries: list[dict[str, Any]], static_threshold: float) -> None:
+    plt = _import_pyplot()
+    episodes = [s["episode"].replace("episode_", "ep") for s in summaries]
+    x = np.arange(len(summaries))
+    low_frac = np.asarray([s["arm_low_motion_chunk_fraction"] for s in summaries], dtype=np.float32)
+    low_run_p95 = np.asarray([s["arm_low_motion_run_p95_chunks"] for s in summaries], dtype=np.float32)
+    low_run_max = np.asarray([s["arm_low_motion_run_max_chunks"] for s in summaries], dtype=np.float32)
+    arm_p10 = np.asarray([s["arm_p10_chunk_mean_abs"] for s in summaries], dtype=np.float32)
+    arm_mean = np.asarray([s["arm_mean_abs"] for s in summaries], dtype=np.float32)
+
+    fig, axes = plt.subplots(2, 1, figsize=(16, 10), sharex=True)
+
+    ax = axes[0]
+    ax.bar(x, low_frac, color="#496a81", label=f"fraction of chunks with arm mean < {static_threshold:.3f}")
+    ax.set_ylabel("low-motion chunk fraction")
+    ax.set_title("Arm low-motion prevalence by episode")
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.legend(fontsize=9, loc="upper right")
+
+    ax2 = ax.twinx()
+    ax2.plot(x, arm_p10, color="#c95f2d", linewidth=1.8, marker="o", markersize=3, label="arm p10 chunk mean |action|")
+    ax2.plot(x, arm_mean, color="#202020", linewidth=1.6, marker="o", markersize=3, label="arm mean |action|")
+    ax2.set_ylabel("motion magnitude")
+    lines, labels = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2, fontsize=9, loc="upper left")
+
+    ax = axes[1]
+    width = 0.38
+    ax.bar(x - width / 2, low_run_p95, width=width, color="#7a9e7e", label="low-motion run p95")
+    ax.bar(x + width / 2, low_run_max, width=width, color="#b55d4c", label="low-motion run max")
+    ax.set_ylabel("contiguous low-motion chunks")
+    ax.set_title("Arm low-motion run lengths by episode")
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.legend(fontsize=9)
+    ax.set_xticks(x, episodes, rotation=90)
+    ax.set_xlabel("episode")
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=140)
+    plt.close(fig)
+
+
+def _write_html(out_dir: Path, summaries: list[dict[str, Any]], top_k: int, static_threshold: float) -> None:
     rows = []
     for s in summaries:
         cells = [
             html.escape(s["episode"]),
             str(s["num_chunks"]),
             f"{s['arm_mean_abs']:.4f}",
+            f"{s['arm_p10_chunk_mean_abs']:.4f}",
             f"{s['arm_p90_chunk_mean_abs']:.4f}",
             f"{s['arm_max_abs']:.4f}",
+            f"{s['arm_low_motion_chunk_fraction']:.3f}",
+            f"{s['arm_low_motion_run_p95_chunks']:.1f}",
+            str(s["arm_low_motion_run_max_chunks"]),
         ]
         cells.extend(f"{s['joint_mean_abs'][name]:.4f}" for name in JOINT_LABELS)
         img = f"episodes/{s['episode']}.png"
@@ -172,6 +260,8 @@ def _write_html(out_dir: Path, summaries: list[dict[str, Any]], top_k: int) -> N
 
     top = sorted(summaries, key=lambda s: s["arm_mean_abs"], reverse=True)[:top_k]
     low = sorted(summaries, key=lambda s: s["arm_mean_abs"])[:top_k]
+    longest_low_runs = sorted(summaries, key=lambda s: s["arm_low_motion_run_max_chunks"], reverse=True)[:top_k]
+    highest_low_fraction = sorted(summaries, key=lambda s: s["arm_low_motion_chunk_fraction"], reverse=True)[:top_k]
 
     def _rank_list(items: list[dict[str, Any]]) -> str:
         return "<ol>" + "".join(
@@ -180,7 +270,27 @@ def _write_html(out_dir: Path, summaries: list[dict[str, Any]], top_k: int) -> N
             for s in items
         ) + "</ol>"
 
-    headers = ["episode", "chunks", "arm mean", "arm p90", "arm max", *JOINT_LABELS, "plot"]
+    def _low_rank_list(items: list[dict[str, Any]]) -> str:
+        return "<ol>" + "".join(
+            f'<li><a href="episodes/{s["episode"]}.png">{html.escape(s["episode"])}</a>: '
+            f'low frac {s["arm_low_motion_chunk_fraction"]:.3f}, '
+            f'max run {s["arm_low_motion_run_max_chunks"]} chunks</li>'
+            for s in items
+        ) + "</ol>"
+
+    headers = [
+        "episode",
+        "chunks",
+        "arm mean",
+        "arm p10",
+        "arm p90",
+        "arm max",
+        f"low frac < {static_threshold:.3f}",
+        "low run p95",
+        "low run max",
+        *JOINT_LABELS,
+        "plot",
+    ]
     html_text = f"""<!doctype html>
 <html>
 <head>
@@ -200,8 +310,11 @@ def _write_html(out_dir: Path, summaries: list[dict[str, Any]], top_k: int) -> N
 <body>
   <h1>Action Motion Report</h1>
   <p>Each value is mean absolute saved target action. Joints 0-4 are relative joint targets; gripper is absolute target.</p>
+  <p>Low-motion metrics are computed from per-chunk arm mean |action| with threshold &lt; {static_threshold:.3f}. Run lengths are contiguous low-motion chunks.</p>
   <h2>Overview</h2>
   <img src="overview.png" alt="overview">
+  <h2>Arm Low-Motion Overview</h2>
+  <img src="arm_low_motion_overview.png" alt="arm low motion overview">
   <div class="grid">
     <section>
       <h2>Highest Arm Motion</h2>
@@ -210,6 +323,16 @@ def _write_html(out_dir: Path, summaries: list[dict[str, Any]], top_k: int) -> N
     <section>
       <h2>Lowest Arm Motion</h2>
       {_rank_list(low)}
+    </section>
+  </div>
+  <div class="grid">
+    <section>
+      <h2>Longest Low-Motion Runs</h2>
+      {_low_rank_list(longest_low_runs)}
+    </section>
+    <section>
+      <h2>Highest Low-Motion Fraction</h2>
+      {_low_rank_list(highest_low_fraction)}
     </section>
   </div>
   <h2>All Episodes</h2>
@@ -237,11 +360,15 @@ def main() -> None:
     summaries: list[dict[str, Any]] = []
     for episode_dir in episode_dirs:
         steps, chunks = _load_episode_chunks(episode_dir)
-        summary = _episode_summary(episode_dir.name, steps, chunks)
+        summary = _episode_summary(episode_dir.name, steps, chunks, args.static_threshold)
         summaries.append(summary)
-        _plot_episode(episode_plot_dir / f"{episode_dir.name}.png", episode_dir.name, steps, chunks)
+        if not args.skip_plots:
+            _plot_episode(episode_plot_dir / f"{episode_dir.name}.png", episode_dir.name, steps, chunks)
         print(
             f"{episode_dir.name}: arm_mean={summary['arm_mean_abs']:.4f} "
+            f"arm_p10={summary['arm_p10_chunk_mean_abs']:.4f} "
+            f"low_frac={summary['arm_low_motion_chunk_fraction']:.3f} "
+            f"low_run_max={summary['arm_low_motion_run_max_chunks']} "
             f"j0={summary['joint_mean_abs']['joint_0']:.4f} "
             f"j1={summary['joint_mean_abs']['joint_1']:.4f} "
             f"j2={summary['joint_mean_abs']['joint_2']:.4f} "
@@ -251,8 +378,10 @@ def main() -> None:
         )
 
     summaries.sort(key=lambda s: s["episode"])
-    _plot_overview(out_dir / "overview.png", summaries)
-    _write_html(out_dir, summaries, args.top_k)
+    if not args.skip_plots:
+        _plot_overview(out_dir / "overview.png", summaries)
+        _plot_low_motion_overview(out_dir / "arm_low_motion_overview.png", summaries, args.static_threshold)
+    _write_html(out_dir, summaries, args.top_k, args.static_threshold)
     (out_dir / "summary.json").write_text(json.dumps(summaries, indent=2))
     print()
     print(f"wrote {out_dir / 'index.html'}")

@@ -14,6 +14,7 @@ his: 1
 # Train/validation split
 run_validation: true
 val_ratio: 0.10
+train_conversation_override: /home/caroline/quantycat-positronic/my_data/training_pipeline/conversations/libero_screwdriver_his_1_train_img_state_abs_ck_1_256_weighted.json
 
 # Training
 batch_size: 4
@@ -34,7 +35,7 @@ lora_r: 16
 lora_alpha: 32
 
 # Inference
-checkpoint: /home/caroline/Desktop/fine_tuning/screwdriver_so101/04162026_epoch3
+checkpoint: /home/caroline/quantycat-positronic/my_data/training_pipeline/fine_tuning/screwdriver_so101/epoch0
 prompt: "Put the screwdriver into the cup"
 robot_port: /dev/ttyACM0
 robot_id: so101_follower
