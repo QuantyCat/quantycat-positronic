@@ -102,7 +102,8 @@ def _resolve_output_dir(root: Path, args: argparse.Namespace, cfg: dict[str, Any
     if not training_output.is_absolute():
         training_output = (root / training_output).resolve()
     task_dir = f"{cfg['task_label']}_{cfg['robot']}"
-    return training_output / task_dir / "model_eval" / ckpt_path.name
+    episode_name = Path(args.episode).expanduser().resolve().name
+    return training_output / task_dir / "model_eval" / ckpt_path.name / episode_name
 
 
 def _make_solver_args(args: argparse.Namespace, cfg: dict[str, Any], ckpt_path: Path, output_dir: Path) -> argparse.Namespace:

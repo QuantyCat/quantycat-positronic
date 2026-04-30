@@ -75,4 +75,4 @@ done
 
 echo ""
 echo "Model eval complete."
-echo "Reports saved to eval_output/screwdriver_so101/model_eval/"
+echo "Reports saved to eval_output/screwdriver_so101/model_eval/<checkpoint>/<episode>/"
