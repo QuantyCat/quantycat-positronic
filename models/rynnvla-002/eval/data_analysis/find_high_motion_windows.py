@@ -8,10 +8,10 @@ harder evaluation slices than low-motion near-static regions.
 
 Examples:
 
-  python models/rynnvla-002/inference/eval/find_high_motion_windows.py \
+  python models/rynnvla-002/eval/data_analysis/find_high_motion_windows.py \
     --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025
 
-  python models/rynnvla-002/inference/eval/find_high_motion_windows.py \
+  python models/rynnvla-002/eval/data_analysis/find_high_motion_windows.py \
     --task-dir my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup \
     --metric arm \
     --top-k 10
@@ -21,11 +21,13 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "model_eval"))
 import episode_step_eval as step_eval
 
 _DEFAULT_CONFIG = "models/rynnvla-002/config.yaml"

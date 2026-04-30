@@ -10,7 +10,7 @@ data. It:
 
 Example:
 
-  conda run -n rynnvla002 python models/rynnvla-002/inference/eval/episode_step_eval.py \
+  conda run -n rynnvla002 python models/rynnvla-002/eval/model_eval/episode_step_eval.py \
     --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
     --step 120 \
     --checkpoint /home/caroline/old_checkpoints/04142026_epoch3 \
