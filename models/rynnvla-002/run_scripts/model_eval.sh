@@ -56,7 +56,8 @@ CKPT_ARG=""
 RYNNVLA_ARG=""
 [ -n "$RYNNVLA_REPO" ] && RYNNVLA_ARG="--rynnvla-repo $RYNNVLA_REPO"
 
-cd "$MODEL_ROOT"
+REPO_ROOT="$(cd "$MODEL_ROOT/../.." && pwd)"
+cd "$REPO_ROOT"
 
 for EPISODE in "${EPISODES[@]}"; do
     echo ""

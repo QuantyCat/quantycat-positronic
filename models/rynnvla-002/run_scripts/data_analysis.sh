@@ -43,7 +43,8 @@ done
 CKPT_ARG=""
 [ -n "$CHECKPOINT" ] && CKPT_ARG="--checkpoint $CHECKPOINT"
 
-cd "$MODEL_ROOT"
+REPO_ROOT="$(cd "$MODEL_ROOT/../.." && pwd)"
+cd "$REPO_ROOT"
 
 echo "--- Step 1: Action stats audit ---"
 $PYTHON "$MODEL_ROOT/eval/data_analysis/action_stats_audit.py"
