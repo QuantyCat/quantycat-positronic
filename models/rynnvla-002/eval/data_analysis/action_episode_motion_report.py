@@ -34,7 +34,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--out-dir",
         type=Path,
-        default=Path("training_output/screwdriver_so101/action_motion_report"),
+        default=Path("eval_output/screwdriver_so101/data_analysis/action_motion_report"),
         help="Output directory for PNG/HTML files.",
     )
     parser.add_argument(

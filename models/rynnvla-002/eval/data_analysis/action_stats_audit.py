@@ -38,7 +38,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("training_output/screwdriver_so101/action_stats_audit/summary.json"),
+        default=Path("eval_output/screwdriver_so101/data_analysis/action_stats_audit/summary.json"),
     )
     parser.add_argument("--sample-limit", type=int, default=1000)
     return parser.parse_args()

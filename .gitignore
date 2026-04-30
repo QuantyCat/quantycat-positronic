@@ -35,6 +35,7 @@ wandb/
 outputs/
 multirun/
 training_output/
+eval_output/
 
 # Config files with secrets
 .env

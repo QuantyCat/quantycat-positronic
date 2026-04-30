@@ -1,7 +1,7 @@
 # Paths — relative to repo root
 input_dir: my_data/input_data
 work_dir: my_data/training_pipeline
-training_output: training_output
+training_output: eval_output
 task_label: screwdriver
 robot: so101
 
