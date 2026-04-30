@@ -11,7 +11,7 @@
 #   source models/rynnvla-002/run_scripts/setup.sh
 #   ./models/rynnvla-002/run_scripts/data_analysis.sh [--checkpoint <path>] [--top-k N]
 #
-# Outputs go to training_output/screwdriver_so101/
+# Outputs go to eval_output/screwdriver_so101/data_analysis/
 
 set -e
 
@@ -54,7 +54,11 @@ echo "--- Step 2: Episode motion report ---"
 $PYTHON "$MODEL_ROOT/eval/data_analysis/action_episode_motion_report.py"
 
 echo ""
-echo "--- Step 3: High-motion eval windows ---"
+echo "--- Step 3: Low-motion distribution plot ---"
+$PYTHON "$MODEL_ROOT/eval/data_analysis/plot_low_motion_distribution.py"
+
+echo ""
+echo "--- Step 4: High-motion eval windows ---"
 $PYTHON "$MODEL_ROOT/eval/data_analysis/find_high_motion_windows.py" \
     --task-dir "$TASK_DIR" \
     --top-k "$TOP_K" \
