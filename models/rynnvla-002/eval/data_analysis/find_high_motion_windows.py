@@ -149,7 +149,6 @@ def _batch_eval_command(
     rynnvla_repo: str,
 ) -> str:
     rel_episode = os.path.relpath(row["episode_dir"], root)
-    rel_cfg = os.path.relpath(cfg_path, root)
     parts = [
         "bash models/rynnvla-002/run_scripts/model_eval.sh",
         f"--episode {_shell_quote(rel_episode)}",
