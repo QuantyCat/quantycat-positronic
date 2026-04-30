@@ -53,8 +53,6 @@ def _parse_args() -> argparse.Namespace:
         default=os.environ.get("RYNNVLA_REPO", ""),
         help="Optional path to the RynnVLA python root for printed commands.",
     )
-    parser.add_argument("--save-json", action="store_true", help="Include --save-json in printed commands.")
-    parser.add_argument("--save-plots", action="store_true", help="Include --save-plots in printed commands.")
     return parser.parse_args()
 
 
@@ -148,27 +146,19 @@ def _batch_eval_command(
     row: dict[str, Any],
     root: Path,
     ckpt_path: Path,
-    cfg_path: Path,
     rynnvla_repo: str,
-    save_json: bool,
-    save_plots: bool,
 ) -> str:
     rel_episode = os.path.relpath(row["episode_dir"], root)
     rel_cfg = os.path.relpath(cfg_path, root)
     parts = [
-        "conda run -n rynnvla002 python models/rynnvla-002/inference/eval/episode_batch_eval.py",
+        "bash models/rynnvla-002/run_scripts/model_eval.sh",
         f"--episode {_shell_quote(rel_episode)}",
         f"--checkpoint {_shell_quote(str(ckpt_path))}",
-        f"--positronic-config {_shell_quote(rel_cfg)}",
         f"--start-step {row['start']}",
         f"--max-steps {row['end'] - row['start'] + 1}",
     ]
     if rynnvla_repo:
         parts.append(f"--rynnvla-repo {_shell_quote(rynnvla_repo)}")
-    if save_json:
-        parts.append("--save-json")
-    if save_plots:
-        parts.append("--save-plots")
     return " \\\n  ".join(parts)
 
 
@@ -203,7 +193,14 @@ def main() -> None:
         raise SystemExit("No windows found; check --window-size and episode/task paths")
 
     rows.sort(key=lambda row: row["score"], reverse=True)
-    top_rows = rows[: args.top_k]
+    seen_episodes: set[str] = set()
+    top_rows: list[dict[str, Any]] = []
+    for row in rows:
+        if row["episode_name"] not in seen_episodes:
+            top_rows.append(row)
+            seen_episodes.add(row["episode_name"])
+        if len(top_rows) >= args.top_k:
+            break
 
     scope = "episode" if args.episode else "task"
     print(
@@ -218,7 +215,7 @@ def main() -> None:
             f"{idx:2d}. {row['episode_name']} steps {row['start']}-{row['end']}  "
             f"score={row['score']:.4f}  {joint_text}"
         )
-        print(_batch_eval_command(row, root, ckpt_path, cfg_path, args.rynnvla_repo.strip(), args.save_json, args.save_plots))
+        print(_batch_eval_command(row, root, ckpt_path, args.rynnvla_repo.strip()))
         print()
 
 

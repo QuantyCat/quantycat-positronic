@@ -62,8 +62,6 @@ echo "--- Step 4: High-motion eval windows ---"
 $PYTHON "$MODEL_ROOT/eval/data_analysis/find_high_motion_windows.py" \
     --task-dir "$TASK_DIR" \
     --top-k "$TOP_K" \
-    --save-json \
-    --save-plots \
     $CKPT_ARG
 
 echo ""
