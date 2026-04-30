@@ -68,4 +68,4 @@ $PYTHON "$MODEL_ROOT/eval/data_analysis/find_high_motion_windows.py" \
 
 echo ""
 echo "Data analysis complete."
-echo "Motion report: eval_output/screwdriver_so101/data_analysis/action_motion_report/index.html"
+echo "Motion report: eval_output/screwdriver_so101/data_analysis/action_motion_report/"

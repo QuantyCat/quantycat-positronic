@@ -381,10 +381,8 @@ def main() -> None:
     if not args.skip_plots:
         _plot_overview(out_dir / "overview.png", summaries)
         _plot_low_motion_overview(out_dir / "arm_low_motion_overview.png", summaries, args.static_threshold)
-    _write_html(out_dir, summaries, args.top_k, args.static_threshold)
     (out_dir / "summary.json").write_text(json.dumps(summaries, indent=2))
     print()
-    print(f"wrote {out_dir / 'index.html'}")
     print(f"wrote {out_dir / 'summary.json'}")
 
 
