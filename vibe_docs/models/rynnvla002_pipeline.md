@@ -16,7 +16,7 @@ my_data/training_pipeline/training_data/
         front_image/image_0.png ...
         wrist_image/image_0.png ...
         state/state_0.npy               shape (6,) joint positions
-        abs_action/action_0/            relative actions, gripper absolute
+        abs_action/action_0/            saved targets: relative joint deltas, gripper absolute
             0.npy ... 19.npy            20 sub-actions per chunk
     ↓  Step 2 — step2_generate_conversations.py
 my_data/training_pipeline/conversations/
@@ -276,6 +276,7 @@ The local fork at `~/RynnVLA-002/` is not a small patch on top of official RynnV
 - pretokenized training contract:
   - this checkpoint trained with `preprocess=true`, so actual `.pkl` training samples matter more than flags like `with_wrist=false`
   - the training samples for this run contained 4 image blocks, 1 state block, and 5 action blocks
+  - `abs_action` files are already target deltas for joints 0-4; eval/analysis must load them directly and must not subtract state again
 
 Agent debugging notes:
 - treat this checkpoint as trained on `his=2` with `front t-1`, `front t`, `wrist t-1`, `wrist t`, plus state
