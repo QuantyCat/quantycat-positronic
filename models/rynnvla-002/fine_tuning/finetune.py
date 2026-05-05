@@ -22,6 +22,7 @@ with open(CONFIG_PATH) as f:
 work_dir       = os.path.abspath(config["work_dir"])
 task_label     = config["task_label"]
 robot          = config["robot"]
+training_run_name = config.get("training_run_name") or f"{task_label}_{robot}"
 action_dim     = config["action_dim"]
 chunk_size     = config["chunk_size"]
 his            = config["his"]
@@ -35,11 +36,25 @@ min_lr         = config["min_lr"]
 clip_grad      = config["clip_grad"]
 z_loss_weight  = config["train_z_loss_weight"]
 loss_ct_weights = config["loss_ct_weights"]
+action_sign_loss_weight = config.get("action_sign_loss_weight", 0.0)
+action_sign_eps = config.get("action_sign_eps", 0.03)
+action_sign_margin = config.get("action_sign_margin", 0.02)
+action_sign_joint_weights = config.get("action_sign_joint_weights")
+action_sign_center = config.get("action_sign_center", "raw_zero")
+action_motion_loss_weight = config.get("action_motion_loss_weight", 0.0)
+action_motion_eps = config.get("action_motion_eps", 0.08)
+action_motion_joint_weights = config.get("action_motion_joint_weights")
+action_motion_horizon_weights = config.get("action_motion_horizon_weights")
+action_magnitude_loss_weight = config.get("action_magnitude_loss_weight", 0.0)
+action_magnitude_eps = config.get("action_magnitude_eps", 0.08)
+action_magnitude_joint_weights = config.get("action_magnitude_joint_weights")
+action_magnitude_horizon_weights = config.get("action_magnitude_horizon_weights")
 lora_r         = config["lora_r"]
 lora_alpha     = config["lora_alpha"]
 ckpt_max_keep  = config["ckpt_max_keep"]
 save_interval  = config["save_interval"]
 fresh_start    = config.get("fresh_start", False)
+resume_from_checkpoint = config.get("resume_from_checkpoint")
 run_validation = bool(config.get("run_validation", False))
 action_stats   = os.path.join(work_dir, "min_max_action.txt")
 state_stats    = os.path.join(work_dir, "min_max_state.txt")
@@ -72,7 +87,7 @@ if not os.path.isfile(data_config_val_ood):
 init_from    = os.path.join(rynnvla_repo, "ckpts", "starting_point")
 tokenizer    = os.path.join(rynnvla_repo, "ckpts", "chameleon", "base_model")
 train_script = os.path.join(rynnvla_repo, "pretrain_solver_awm_w_ck_action_head.py")
-output_dir   = os.path.realpath(os.path.join(work_dir, "fine_tuning", f"{task_label}_{robot}"))
+output_dir   = os.path.realpath(os.path.join(work_dir, "fine_tuning", training_run_name))
 
 # Resume / fresh-start logic
 if fresh_start:
@@ -80,6 +95,10 @@ if fresh_start:
         shutil.rmtree(output_dir)
         print(f"  Cleared output dir for fresh start: {output_dir}")
     resume_flags = ["--no_auto_resume"]
+elif resume_from_checkpoint:
+    resume_from_checkpoint = os.path.abspath(os.path.expanduser(resume_from_checkpoint))
+    print(f"  Resuming from configured checkpoint: {resume_from_checkpoint}")
+    resume_flags = ["--resume_path", resume_from_checkpoint]
 else:
     print(f"  Auto-resuming from last checkpoint in: {output_dir}")
     resume_flags = []  # auto_resume=True is the training script default
@@ -97,7 +116,7 @@ print(f"  Train data: {data_config_train}")
 if run_validation:
     print(f"  Val data:   {data_config_val_ind}")
 print(f"  Output:    {output_dir}")
-print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}  loss_ct_weights={loss_ct_weights}")
+print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}  loss_ct_weights={loss_ct_weights}  action_sign_loss_weight={action_sign_loss_weight}  action_sign_center={action_sign_center}  action_sign_margin={action_sign_margin}  action_sign_joint_weights={action_sign_joint_weights}  action_motion_loss_weight={action_motion_loss_weight}  action_motion_eps={action_motion_eps}  action_motion_joint_weights={action_motion_joint_weights}  action_motion_horizon_weights={action_motion_horizon_weights}  action_magnitude_loss_weight={action_magnitude_loss_weight}  action_magnitude_eps={action_magnitude_eps}  action_magnitude_joint_weights={action_magnitude_joint_weights}  action_magnitude_horizon_weights={action_magnitude_horizon_weights}")
 print()
 
 # Trainable params: lora_weight_ + action_head + lm_head
@@ -146,6 +165,19 @@ cmd = [
     "--dropout", "0.08",
     "--z_loss_weight", str(z_loss_weight), # from config.yaml
     "--loss_ct_weights", str(loss_ct_weights),
+    "--action_sign_loss_weight", str(action_sign_loss_weight),
+    "--action_sign_eps", str(action_sign_eps),
+    "--action_sign_margin", str(action_sign_margin),
+    "--action_sign_joint_weights", str(action_sign_joint_weights) if action_sign_joint_weights is not None else "",
+    "--action_sign_center", str(action_sign_center),
+    "--action_motion_loss_weight", str(action_motion_loss_weight),
+    "--action_motion_eps", str(action_motion_eps),
+    "--action_motion_joint_weights", str(action_motion_joint_weights) if action_motion_joint_weights is not None else "",
+    "--action_motion_horizon_weights", str(action_motion_horizon_weights) if action_motion_horizon_weights is not None else "",
+    "--action_magnitude_loss_weight", str(action_magnitude_loss_weight),
+    "--action_magnitude_eps", str(action_magnitude_eps),
+    "--action_magnitude_joint_weights", str(action_magnitude_joint_weights) if action_magnitude_joint_weights is not None else "",
+    "--action_magnitude_horizon_weights", str(action_magnitude_horizon_weights) if action_magnitude_horizon_weights is not None else "",
     "--ckpt_max_keep", str(ckpt_max_keep),
     "--save_iteration_interval", str(save_interval),
     "--lora_r", str(lora_r),

@@ -6,6 +6,9 @@ This helper scans saved `abs_action/action_<step>/<chunk_pos>.npy` files and fin
 episode windows with the largest average action magnitude. It is useful for picking
 harder evaluation slices than low-motion near-static regions.
 
+The saved `abs_action` files are already target deltas for joints 0-4, with an
+absolute gripper target. Do not subtract state when ranking these chunks.
+
 Examples:
 
   python models/rynnvla-002/eval/data_analysis/find_high_motion_windows.py \

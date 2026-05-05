@@ -24,6 +24,7 @@ work_dir    = os.path.abspath(config["work_dir"])
 label       = config["task_label"]
 his         = config["his"]
 resolution  = config["resolution"]
+deterministic_crop = bool(config.get("deterministic_crop", False))
 action_stats = os.path.join(work_dir, "min_max_action.txt")
 state_stats = os.path.join(work_dir, "min_max_state.txt")
 
@@ -73,12 +74,16 @@ for split_name, conv_path in split_inputs:
         print(f"Tokens already exist at {split_output_dir} — skipping {split_name}. Delete to rerun.")
         continue
 
+    cmd = [sys.executable, script,
+           "--input_file", conv_path,
+           "--output_dir", split_output_dir,
+           "--resolution", str(resolution),
+           "--tokenizer_path", tokenizer]
+    if deterministic_crop:
+        cmd.append("--deterministic_crop")
+
     result = subprocess.run(
-        [sys.executable, script,
-         "--input_file", conv_path,
-         "--output_dir", split_output_dir,
-         "--resolution", str(resolution),
-         "--tokenizer_path", tokenizer],
+        cmd,
         cwd=os.path.join(rynnvla_repo, "data_lerobot"),
         env=env,
     )

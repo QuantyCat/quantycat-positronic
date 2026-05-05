@@ -152,6 +152,12 @@ def _norm_action(action: np.ndarray, min_values: np.ndarray, max_values: np.ndar
     return np.clip(2.0 * (action - min_values) / (max_values - min_values + 1e-8) - 1.0, -1.0, 1.0)
 
 
+def _zero_norm(min_values: np.ndarray, max_values: np.ndarray) -> np.ndarray:
+    min_values = np.asarray(min_values, dtype=np.float32)
+    max_values = np.asarray(max_values, dtype=np.float32)
+    return 2.0 * (0.0 - min_values) / (max_values - min_values + 1e-8) - 1.0
+
+
 def _sign_agreement(pred: np.ndarray, gt: np.ndarray, eps: float) -> tuple[np.ndarray, np.ndarray]:
     pred = np.asarray(pred, dtype=np.float32)
     gt = np.asarray(gt, dtype=np.float32)
@@ -266,6 +272,9 @@ def _best_joint_match(pred_flat: np.ndarray, gt_flat: np.ndarray) -> dict[str, A
 
 
 def _summarize(pred_steps: np.ndarray, gt_steps: np.ndarray, sign_eps: float, min_values: np.ndarray, max_values: np.ndarray) -> dict[str, Any]:
+    # `gt_steps` are loaded directly from saved `abs_action` files. Those files
+    # already contain target deltas for joints 0-4; subtracting state here would
+    # double-apply the preprocessing transform.
     pred_flat = pred_steps.reshape(-1, pred_steps.shape[-1]).astype(np.float32)
     gt_flat = gt_steps.reshape(-1, gt_steps.shape[-1]).astype(np.float32)
     diff_flat = pred_flat - gt_flat
@@ -276,6 +285,12 @@ def _summarize(pred_steps: np.ndarray, gt_steps: np.ndarray, sign_eps: float, mi
 
     sign_agreement, sign_counts = _sign_agreement(pred_flat, gt_flat, sign_eps)
     sign_agreement_norm, sign_counts_norm = _sign_agreement(pred_norm, gt_norm, sign_eps)
+    zero_norm = _zero_norm(min_values, max_values)
+    sign_agreement_norm_centered, sign_counts_norm_centered = _sign_agreement(
+        pred_norm - zero_norm.reshape(1, -1),
+        gt_norm - zero_norm.reshape(1, -1),
+        sign_eps,
+    )
 
     per_joint_mae = np.mean(np.abs(diff_flat), axis=0)
     per_joint_bias = np.mean(diff_flat, axis=0)
@@ -292,6 +307,7 @@ def _summarize(pred_steps: np.ndarray, gt_steps: np.ndarray, sign_eps: float, mi
     normalized_convention_checks = _best_joint_match(pred_norm, gt_norm)
 
     return {
+        "action_convention": "saved target deltas for joints 0-4; gripper absolute; no eval-time state subtraction",
         "overall": {
             "mean_abs": float(np.mean(np.abs(diff_flat))),
             "max_abs": float(np.max(np.abs(diff_flat))),
@@ -321,6 +337,11 @@ def _summarize(pred_steps: np.ndarray, gt_steps: np.ndarray, sign_eps: float, mi
             "mean_abs_gt": _joint_table(per_joint_gt_abs_norm),
             "mean_abs_pred": _joint_table(per_joint_pred_abs_norm),
             "magnitude_ratio": _joint_table(per_joint_mag_ratio_norm),
+        },
+        "normalized_centered_per_joint": {
+            "sign_center": _joint_table(zero_norm),
+            "sign_agreement": _joint_table(sign_agreement_norm_centered),
+            "sign_count": {k: int(v) for k, v in _joint_table(sign_counts_norm_centered.astype(np.float32)).items() if v is not None},
         },
         "normalized_distribution": {
             "pred": _distribution_table(pred_norm),

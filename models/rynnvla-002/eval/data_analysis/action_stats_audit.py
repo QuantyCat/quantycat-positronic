@@ -2,6 +2,11 @@
 """
 Audit RynnVLA action min/max normalization against saved training chunks.
 
+The saved `abs_action` files are already the supervised action targets:
+joints 0-4 are relative deltas from the current state and the gripper is
+absolute. This audit intentionally normalizes those files directly; it must not
+subtract state again.
+
 This is CPU-only and checks:
   - stats file min/max vs empirical min/max
   - normalize -> unnormalize round-trip

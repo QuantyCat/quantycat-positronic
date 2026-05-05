@@ -7,6 +7,10 @@ It reads:
 
     task_dir/episode_XXXXXX/abs_action/action_T/0.npy ... N.npy
 
+Despite the directory name, saved `abs_action` files are already the training
+targets: relative deltas for joints 0-4 and absolute gripper targets. This report
+must analyze those saved values directly, with no state subtraction.
+
 and writes PNG plots plus a compact HTML index.
 """
 

@@ -86,6 +86,12 @@ def _load_state(path: Path) -> np.ndarray:
 
 
 def _load_action_chunk(action_dir: Path) -> np.ndarray:
+    """Load saved training targets.
+
+    Despite the directory name `abs_action`, preprocessing has already converted
+    joints 0-4 to relative deltas. Do not subtract the current state here.
+    The gripper channel remains an absolute target.
+    """
     files = sorted(
         [p for p in action_dir.iterdir() if p.is_file() and p.suffix == ".npy"],
         key=lambda p: int(p.stem),
@@ -275,6 +281,7 @@ def main() -> None:
     print(f"wrist_current={sample['wrist_current_path']}")
     print(f"state_path={sample['state_path']}")
     print(f"action_dir={sample['action_dir']}")
+    print("action_convention=saved target deltas for joints 0-4; gripper absolute; no eval-time state subtraction")
     print(f"front_history={[str(p) for p in sample['front_history_paths']]}")
     print(f"wrist_history={[str(p) for p in sample['wrist_history_paths']]}")
     print(f"state={np.round(sample['state'], 6).tolist()}")
@@ -305,6 +312,7 @@ def main() -> None:
             "wrist_history": [str(p) for p in sample["wrist_history_paths"]],
             "state_path": str(sample["state_path"]),
             "action_dir": str(sample["action_dir"]),
+            "action_convention": "saved target deltas for joints 0-4; gripper absolute; no eval-time state subtraction",
             "state": np.round(sample["state"], 6).tolist(),
             "metrics": metrics,
             "gt_action": np.round(gt, 6).tolist(),

@@ -4,6 +4,7 @@ work_dir: my_data/training_pipeline
 training_output: eval_output
 task_label: screwdriver
 robot: so101
+training_run_name: screwdriver_so101_final_fresh_h1_amp
 
 # Must be consistent across preprocessing, training, and inference
 chunk_size: 5
@@ -20,13 +21,27 @@ train_conversation_override: /home/caroline/quantycat-positronic/my_data/trainin
 batch_size: 4
 accum_iter: 4
 num_workers: 6
-epochs: 4
-lr: 0.0001
-min_lr: 0.00001
+epochs: 17
+lr: 0.00005
+min_lr: 0.000005
 clip_grad: 24.0
 train_z_loss_weight: 1e-3
-loss_ct_weights: 10
+loss_ct_weights: 5
+action_sign_loss_weight: 1.0
+action_sign_eps: 0.02
+action_sign_margin: 0.08
+action_sign_joint_weights: [1, 4, 4, 4, 1, 0]
+action_sign_center: raw_zero
+action_motion_loss_weight: 1.5
+action_motion_eps: 0.08
+action_motion_joint_weights: [0, 1, 1, 8, 0, 0]
+action_motion_horizon_weights: [3.0, 1.5, 1.0, 0.5, 0.25]
+action_magnitude_loss_weight: 2.0
+action_magnitude_eps: 0.08
+action_magnitude_joint_weights: [0, 0, 0, 1, 0, 0]
+action_magnitude_horizon_weights: [1.0, 0, 0, 0, 0]
 fresh_start: true
+resume_from_checkpoint:
 ckpt_max_keep: 3
 save_interval: 2000
 
