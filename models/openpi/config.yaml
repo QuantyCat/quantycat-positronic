@@ -1,0 +1,56 @@
+# Paths — relative to repo root
+input_dir: my_data/input_data
+work_dir: my_data/training_pipeline
+task_label: screwdriver
+robot: so101
+training_run_name: screwdriver_so101_openpi_v1
+
+# HuggingFace repo id for your LeRobot dataset, OR an absolute local path.
+# openpi's data loader calls LeRobotDataset(hf_repo_id), so the dataset must
+# be either uploaded to HF hub or accessible as a local LeRobot-format directory.
+# Example (HF hub):  physical-intelligence/my_so101_dataset
+# Example (local):   /home/caroline/quantycat-positronic/my_data/input_data
+hf_repo_id: ~
+
+# Must be consistent across preprocessing, training, and inference
+action_dim: 6
+action_horizon: 5
+max_token_len: 180    # 180 is the recommended default for single-arm robots
+
+# Model variant:
+#   pi0        — full fine-tune (~3B params, requires ~40 GB VRAM)
+#   pi0_lora   — LoRA fine-tune (~fewer trainable params, ~24 GB VRAM)
+#   pi0_fast   — pi0-FAST full fine-tune (action-tokenizer head)
+model_type: pi0
+
+# Optional: path to a local PyTorch checkpoint to initialise weights from.
+# Leave blank to download the base checkpoint from GCS via openpi's weight loader.
+# Example: /home/caroline/openpi/checkpoints/pi0_base/model.safetensors
+base_pytorch_checkpoint: ~
+
+# Training
+batch_size: 4
+num_workers: 2
+num_train_steps: 30000
+lr: 5.0e-5
+warmup_steps: 1000
+seed: 42
+save_interval: 1000
+wandb_enabled: false
+overwrite: false
+resume: false
+
+# Inference
+checkpoint: ~   # path to checkpoint directory from training, e.g. my_data/training_pipeline/fine_tuning/<run>/29999
+prompt: "Put the screwdriver into the cup"
+robot_port: /dev/ttyACM0
+robot_id: so101_follower
+front_camera_index: /dev/video0
+wrist_camera_index: /dev/video4
+camera_width: 640
+camera_height: 480
+camera_fps: 30
+gpu: 0
+control_period_s: 0.05
+execute_steps_per_inference: 2
+max_steps: 0

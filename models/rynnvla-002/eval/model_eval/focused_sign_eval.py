@@ -20,7 +20,7 @@ import episode_batch_eval as batch_eval
 import episode_step_eval as step_eval
 
 
-_FOCUS_JOINTS = ("joint_1", "joint_2", "joint_3")
+_FOCUS_JOINTS = ("joint_0", "joint_1", "joint_2", "joint_3", "joint_4")
 
 
 def _parse_case(value: str) -> tuple[Path, int, int]:
@@ -78,15 +78,18 @@ def _print_focus(title: str, focus: dict[str, dict[str, Any]]) -> None:
     def _fmt(value: Any) -> str:
         return "nan" if value is None else f"{value:.3f}"
 
+    def _fmt_count(value: Any) -> str:
+        return "0" if value is None else str(value)
+
     print(f"\n{title}")
     for joint in _FOCUS_JOINTS:
         row = focus[joint]
         print(
-            f"  {joint}: sign={row['raw_sign_agreement']:.3f} "
-            f"centered_norm_sign={row['normalized_centered_sign_agreement']:.3f} "
-            f"n={row['raw_sign_count']} corr={_fmt(row['raw_same_corr'])} "
+            f"  {joint}: sign={_fmt(row['raw_sign_agreement'])} "
+            f"centered_norm_sign={_fmt(row['normalized_centered_sign_agreement'])} "
+            f"n={_fmt_count(row['raw_sign_count'])} corr={_fmt(row['raw_same_corr'])} "
             f"neg_corr={_fmt(row['raw_negated_corr'])} "
-            f"slope={_fmt(row['raw_fit_slope'])} norm_mae={row['normalized_mae']:.3f}"
+            f"slope={_fmt(row['raw_fit_slope'])} norm_mae={_fmt(row['normalized_mae'])}"
         )
 
 

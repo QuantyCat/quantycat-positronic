@@ -44,10 +44,12 @@ def _parse_args() -> argparse.Namespace:
         "--metric",
         choices=("all", "arm", "gripper"),
         default="arm",
-        help="Motion score to rank by: all joints, arm joints only, or gripper only.",
+        help="Motion score to rank by: all joints, arm joints only, or gripper only. Ignored when --joint is set.",
     )
+    parser.add_argument("--joint", type=int, default=None, help="Rank windows by a single joint index (0-4). Overrides --metric.")
     parser.add_argument("--window-size", type=int, default=50, help="Number of steps per ranked window.")
     parser.add_argument("--top-k", type=int, default=10, help="Number of top windows to print.")
+    parser.add_argument("--save-windows", type=str, default=None, help="Save selected windows to this JSON path.")
     parser.add_argument("--checkpoint", type=str, default=None, help="Optional checkpoint override for printed commands.")
     parser.add_argument("--positronic-config", type=str, default=_DEFAULT_CONFIG)
     parser.add_argument(
@@ -86,7 +88,9 @@ def _load_episode_chunks(episode_dir: Path) -> np.ndarray:
     return np.stack([_load_chunk(d) for d in action_dirs], axis=0)
 
 
-def _step_scores(chunks: np.ndarray, metric: str) -> np.ndarray:
+def _step_scores(chunks: np.ndarray, metric: str, joint: int | None = None) -> np.ndarray:
+    if joint is not None:
+        return np.mean(np.abs(chunks[:, :, joint]), axis=1)
     if metric == "all":
         data = chunks
     elif metric == "arm":
@@ -102,12 +106,12 @@ def _joint_means(chunks: np.ndarray) -> np.ndarray:
     return np.mean(np.abs(chunks), axis=1)
 
 
-def _scan_episode(episode_dir: Path, metric: str, window_size: int) -> list[dict[str, Any]]:
+def _scan_episode(episode_dir: Path, metric: str, window_size: int, joint: int | None = None) -> list[dict[str, Any]]:
     chunks = _load_episode_chunks(episode_dir)
     if len(chunks) < window_size:
         return []
 
-    scores = _step_scores(chunks, metric)
+    scores = _step_scores(chunks, metric, joint)
     joint_means = _joint_means(chunks)
     rows: list[dict[str, Any]] = []
     for start in range(0, len(chunks) - window_size + 1):
@@ -190,7 +194,7 @@ def main() -> None:
 
     rows: list[dict[str, Any]] = []
     for episode_dir in episode_dirs:
-        rows.extend(_scan_episode(episode_dir, args.metric, args.window_size))
+        rows.extend(_scan_episode(episode_dir, args.metric, args.window_size, args.joint))
     if not rows:
         raise SystemExit("No windows found; check --window-size and episode/task paths")
 
@@ -204,9 +208,14 @@ def main() -> None:
         if len(top_rows) >= args.top_k:
             break
 
+    if args.joint is not None:
+        rank_metric = f"mean_abs_joint_{args.joint}_over_chunk_and_window"
+    else:
+        rank_metric = f"mean_abs_{args.metric}_over_chunk_and_window"
+
     scope = "episode" if args.episode else "task"
     print(
-        f"Top {len(top_rows)} {scope} windows by metric={args.metric} "
+        f"Top {len(top_rows)} {scope} windows by metric={rank_metric} "
         f"(window_size={args.window_size})"
     )
     print()
@@ -219,6 +228,26 @@ def main() -> None:
         )
         print(_batch_eval_command(row, root, ckpt_path, args.rynnvla_repo.strip()))
         print()
+
+    if args.save_windows:
+        import json as _json
+        score_key = f"joint_{args.joint}_window_score" if args.joint is not None else "window_score"
+        windows_out = [
+            {
+                "episode": str(row["episode_dir"]),
+                "episode_name": row["episode_name"],
+                "start_step": row["start"],
+                "end_step": row["end"],
+                "max_steps": args.window_size,
+                score_key: row["score"],
+            }
+            for row in top_rows
+        ]
+        save_path = Path(args.save_windows)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        with save_path.open("w", encoding="utf-8") as f:
+            _json.dump({"window_size": args.window_size, "rank_metric": rank_metric, "windows": windows_out}, f, indent=2)
+        print(f"saved {len(windows_out)} windows to {save_path}")
 
 
 if __name__ == "__main__":

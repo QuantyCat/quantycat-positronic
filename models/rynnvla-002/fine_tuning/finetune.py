@@ -39,8 +39,16 @@ loss_ct_weights = config["loss_ct_weights"]
 action_sign_loss_weight = config.get("action_sign_loss_weight", 0.0)
 action_sign_eps = config.get("action_sign_eps", 0.03)
 action_sign_margin = config.get("action_sign_margin", 0.02)
+action_wrong_sign_loss_multiplier = config.get("action_wrong_sign_loss_multiplier", 1.0)
+action_wrong_sign_joint_weights = config.get("action_wrong_sign_joint_weights")
 action_sign_joint_weights = config.get("action_sign_joint_weights")
+action_sign_horizon_weights = config.get("action_sign_horizon_weights")
 action_sign_center = config.get("action_sign_center", "raw_zero")
+action_quiet_loss_weight = config.get("action_quiet_loss_weight", 0.0)
+action_quiet_eps = config.get("action_quiet_eps", 0.01)
+action_quiet_pred_eps = config.get("action_quiet_pred_eps", 0.01)
+action_quiet_joint_weights = config.get("action_quiet_joint_weights")
+action_quiet_horizon_weights = config.get("action_quiet_horizon_weights")
 action_motion_loss_weight = config.get("action_motion_loss_weight", 0.0)
 action_motion_eps = config.get("action_motion_eps", 0.08)
 action_motion_joint_weights = config.get("action_motion_joint_weights")
@@ -58,6 +66,9 @@ resume_from_checkpoint = config.get("resume_from_checkpoint")
 run_validation = bool(config.get("run_validation", False))
 action_stats   = os.path.join(work_dir, "min_max_action.txt")
 state_stats    = os.path.join(work_dir, "min_max_state.txt")
+data_config_train_override = config.get("data_config_train_override")
+data_config_val_ind_override = config.get("data_config_val_ind_override")
+data_config_val_ood_override = config.get("data_config_val_ood_override")
 
 home         = os.path.expanduser("~")
 rynnvla_repo = os.path.join(home, "RynnVLA-002", "rynnvla-002")
@@ -73,6 +84,12 @@ data_config_val_ood_name = f"his_{his}_third_view_wrist_w_state_{chunk_size}_{re
 data_config_train = os.path.join(rynnvla_repo, "configs", "lerobot", data_config_train_name)
 data_config_val_ind = os.path.join(rynnvla_repo, "configs", "lerobot", data_config_val_ind_name)
 data_config_val_ood = os.path.join(rynnvla_repo, "configs", "lerobot", data_config_val_ood_name)
+if data_config_train_override:
+    data_config_train = os.path.abspath(os.path.expanduser(data_config_train_override))
+if data_config_val_ind_override:
+    data_config_val_ind = os.path.abspath(os.path.expanduser(data_config_val_ind_override))
+if data_config_val_ood_override:
+    data_config_val_ood = os.path.abspath(os.path.expanduser(data_config_val_ood_override))
 if not os.path.isfile(data_config_train):
     print(f"ERROR: data config not found at {data_config_train}")
     print("Run preprocessing (step7) first, or check that his/chunk_size/resolution in config.yaml match.")
@@ -116,7 +133,7 @@ print(f"  Train data: {data_config_train}")
 if run_validation:
     print(f"  Val data:   {data_config_val_ind}")
 print(f"  Output:    {output_dir}")
-print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}  loss_ct_weights={loss_ct_weights}  action_sign_loss_weight={action_sign_loss_weight}  action_sign_center={action_sign_center}  action_sign_margin={action_sign_margin}  action_sign_joint_weights={action_sign_joint_weights}  action_motion_loss_weight={action_motion_loss_weight}  action_motion_eps={action_motion_eps}  action_motion_joint_weights={action_motion_joint_weights}  action_motion_horizon_weights={action_motion_horizon_weights}  action_magnitude_loss_weight={action_magnitude_loss_weight}  action_magnitude_eps={action_magnitude_eps}  action_magnitude_joint_weights={action_magnitude_joint_weights}  action_magnitude_horizon_weights={action_magnitude_horizon_weights}")
+print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}  loss_ct_weights={loss_ct_weights}  action_sign_loss_weight={action_sign_loss_weight}  action_sign_eps={action_sign_eps}  action_sign_center={action_sign_center}  action_sign_margin={action_sign_margin}  action_wrong_sign_loss_multiplier={action_wrong_sign_loss_multiplier}  action_wrong_sign_joint_weights={action_wrong_sign_joint_weights}  action_sign_joint_weights={action_sign_joint_weights}  action_sign_horizon_weights={action_sign_horizon_weights}  action_quiet_loss_weight={action_quiet_loss_weight}  action_quiet_eps={action_quiet_eps}  action_quiet_pred_eps={action_quiet_pred_eps}  action_quiet_joint_weights={action_quiet_joint_weights}  action_quiet_horizon_weights={action_quiet_horizon_weights}  action_motion_loss_weight={action_motion_loss_weight}  action_motion_eps={action_motion_eps}  action_motion_joint_weights={action_motion_joint_weights}  action_motion_horizon_weights={action_motion_horizon_weights}  action_magnitude_loss_weight={action_magnitude_loss_weight}  action_magnitude_eps={action_magnitude_eps}  action_magnitude_joint_weights={action_magnitude_joint_weights}  action_magnitude_horizon_weights={action_magnitude_horizon_weights}")
 print()
 
 # Trainable params: lora_weight_ + action_head + lm_head
@@ -168,8 +185,16 @@ cmd = [
     "--action_sign_loss_weight", str(action_sign_loss_weight),
     "--action_sign_eps", str(action_sign_eps),
     "--action_sign_margin", str(action_sign_margin),
+    "--action_wrong_sign_loss_multiplier", str(action_wrong_sign_loss_multiplier),
+    "--action_wrong_sign_joint_weights", str(action_wrong_sign_joint_weights) if action_wrong_sign_joint_weights is not None else "",
     "--action_sign_joint_weights", str(action_sign_joint_weights) if action_sign_joint_weights is not None else "",
+    "--action_sign_horizon_weights", str(action_sign_horizon_weights) if action_sign_horizon_weights is not None else "",
     "--action_sign_center", str(action_sign_center),
+    "--action_quiet_loss_weight", str(action_quiet_loss_weight),
+    "--action_quiet_eps", str(action_quiet_eps),
+    "--action_quiet_pred_eps", str(action_quiet_pred_eps),
+    "--action_quiet_joint_weights", str(action_quiet_joint_weights) if action_quiet_joint_weights is not None else "",
+    "--action_quiet_horizon_weights", str(action_quiet_horizon_weights) if action_quiet_horizon_weights is not None else "",
     "--action_motion_loss_weight", str(action_motion_loss_weight),
     "--action_motion_eps", str(action_motion_eps),
     "--action_motion_joint_weights", str(action_motion_joint_weights) if action_motion_joint_weights is not None else "",

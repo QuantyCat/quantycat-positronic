@@ -4,7 +4,7 @@ work_dir: my_data/training_pipeline
 training_output: eval_output
 task_label: screwdriver
 robot: so101
-training_run_name: screwdriver_so101_h1j01234_alljoints_scratch
+training_run_name: screwdriver_so101_fresh_h1j3_weighted_scratch
 
 # Must be consistent across preprocessing, training, and inference
 chunk_size: 5
@@ -15,8 +15,7 @@ his: 1
 # Train/validation split
 run_validation: true
 val_ratio: 0.10
-train_conversation_override: /home/caroline/quantycat-positronic/my_data/training_pipeline/conversations/libero_screwdriver_his_1_train_h1j01234_alljoints_img_state_abs_ck_1_256.json
-data_config_train_override: /home/caroline/RynnVLA-002/rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_5_256_pretokenize_h1j01234_alljoints.yaml
+train_conversation_override: /home/caroline/quantycat-positronic/my_data/training_pipeline/conversations/libero_screwdriver_his_1_train_img_state_abs_ck_1_256_h1j3_weighted.json
 
 # Training
 batch_size: 4
@@ -29,26 +28,19 @@ clip_grad: 24.0
 train_z_loss_weight: 1e-3
 loss_ct_weights: 5
 action_sign_loss_weight: 2.0
-action_sign_eps: 0.01
+action_sign_eps: 0.02
 action_sign_margin: 0.08
-action_wrong_sign_loss_multiplier: 4.0
-action_wrong_sign_joint_weights: [2, 1, 1, 1, 2, 0]
-action_sign_joint_weights: [8, 6, 6, 8, 6, 0]
+action_sign_joint_weights: [1, 4, 4, 10, 1, 0]
 action_sign_horizon_weights: [6.0, 1.5, 1.0, 0.5, 0.25]
 action_sign_center: raw_zero
-action_quiet_loss_weight: 2.0
-action_quiet_eps: 0.01
-action_quiet_pred_eps: 0.01
-action_quiet_joint_weights: [0, 1, 1, 0, 1, 0]
-action_quiet_horizon_weights: [1, 1, 1, 1, 1]
 action_motion_loss_weight: 1.5
 action_motion_eps: 0.08
-action_motion_joint_weights: [6, 3, 3, 8, 4, 0]
+action_motion_joint_weights: [0, 1, 1, 12, 0, 0]
 action_motion_horizon_weights: [8.0, 1.5, 1.0, 0.5, 0.25]
 action_magnitude_loss_weight: 2.0
 action_magnitude_eps: 0.08
-action_magnitude_joint_weights: [3, 1, 1, 2, 2, 0]
-action_magnitude_horizon_weights: [1.0, 0.75, 0.5, 0.25, 0.1]
+action_magnitude_joint_weights: [0, 0, 0, 1, 0, 0]
+action_magnitude_horizon_weights: [1.0, 0, 0, 0, 0]
 fresh_start: false
 resume_from_checkpoint:
 ckpt_max_keep: 3
@@ -59,7 +51,7 @@ lora_r: 16
 lora_alpha: 32
 
 # Inference
-checkpoint: /home/caroline/quantycat-positronic/my_data/training_pipeline/fine_tuning/testing_checkpoints/h1j123_j3restore_epoch8_robot_test_candidate
+checkpoint: /home/caroline/quantycat-positronic/my_data/training_pipeline/fine_tuning/screwdriver_so101/epoch0
 prompt: "Put the screwdriver into the cup"
 robot_port: /dev/ttyACM0
 robot_id: so101_follower
