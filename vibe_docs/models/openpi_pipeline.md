@@ -124,14 +124,9 @@ Changed files:
   - This fixes the `ValueError: Feature type 'List' not found` failure with
     OpenPI's pinned `datasets==3.6.0`.
 
-Reference copies live under:
-
-```text
-/home/caroline/quantycat-positronic/models/openpi/
-```
-
-Those files are documentation snapshots. The live source of truth for training
-is `/home/caroline/openpi`.
+The live source of truth for training is `/home/caroline/openpi`. The
+Quantycat wrapper under `/home/caroline/quantycat-positronic/models/openpi/`
+contains run scripts and notes, not a second runnable training config.
 
 ---
 
@@ -230,7 +225,8 @@ weight_loader=weight_loaders.CheckpointWeightLoader(
     "gs://openpi-assets/checkpoints/pi05_base/params"
 )
 num_train_steps=5_000
-batch_size=8
+ema_decay=None
+batch_size=4
 num_workers=2
 save_interval=1000
 keep_period=5000
@@ -239,10 +235,13 @@ wandb_enabled=False
 
 Notes:
 
-- `batch_size=8` is intentionally kept because this is the value chosen for
-  the first run.
-- On a 32GB RTX 5090, full π0.5 fine-tuning may OOM. If that happens, reduce
-  `batch_size` first, likely to `4` or `1`.
+- `batch_size=4` is the current lower-memory retry setting. The original first
+  run used `8`.
+- On a 32GB RTX 5090, full π0.5 fine-tuning may still OOM during train-state
+  initialization even at batch size 4.
+- `ema_decay=None` disables OpenPI's extra smoothed parameter copy. This keeps
+  the run closer to full fine-tuning than switching to LoRA, while reducing
+  train-state memory.
 - `XLA_PYTHON_CLIENT_MEM_FRACTION=0.9` is set by `training.sh`.
 
 ---

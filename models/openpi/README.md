@@ -1,53 +1,42 @@
-# Quantycat OpenPI Pi05 Config
+# Quantycat OpenPI Pi05
 
-This directory holds the Quantycat SO-101 configuration layer for openpi/pi05.
-It does not modify the upstream openpi checkout by itself.
+This directory holds the Quantycat helper scripts and notes for openpi/pi05.
+It does not contain a second runnable OpenPI training config.
 
-The runnable source of truth is the patched checkout under:
+The runnable source of truth is the patched OpenPI checkout under:
 
 ```text
 /home/caroline/openpi
 ```
 
-The files in this directory are reference snapshots for the Quantycat project.
-If behavior changes, update the live openpi files first and then refresh these
-snapshots.
-
-## Files
-
-- `config.yaml` - local run settings for the SO-101 screwdriver dataset.
-- `training_config/quantycat_policy.py` - SO-101 input/output transforms.
-- `training_config/quantycat_openpi_config.py` - source snippet for the matching openpi `TrainConfig`.
-
-## Intended OpenPI Changes
-
-Install the policy transform into openpi:
-
-```bash
-cp models/openpi/training_config/quantycat_policy.py \
-  /home/caroline/openpi/src/openpi/policies/quantycat_policy.py
-```
-
-Then add the contents of `LeRobotQuantycatDataConfig` and
-`PI05_QUANTYCAT_CONFIG` from `training_config/quantycat_openpi_config.py` to:
+In particular, the active config is:
 
 ```text
 /home/caroline/openpi/src/openpi/training/config.py
 ```
 
-Also add this import near the other policy imports:
+and the active policy transform is:
 
-```python
-import openpi.policies.quantycat_policy as quantycat_policy
+```text
+/home/caroline/openpi/src/openpi/policies/quantycat_policy.py
 ```
 
-## Commands After Installation
+## Files
 
-From `/home/caroline/openpi`:
+- `run_scripts/setup.sh` - install/sync the OpenPI environment.
+- `run_scripts/preprocess.sh` - compute OpenPI norm stats.
+- `run_scripts/training.sh` - launch training with `pi05_quantycat`.
+- `training_config/quantycat_policy.py` - optional readable copy of the policy
+  transform. The live copy is in `/home/caroline/openpi`.
+
+## Commands
+
+From `/home/caroline/quantycat-positronic`:
 
 ```bash
-uv run scripts/compute_norm_stats.py --config-name pi05_quantycat
-XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py pi05_quantycat --exp-name=screwdriver_so101_pi05_h20_v1 --overwrite
+bash models/openpi/run_scripts/setup.sh
+bash models/openpi/run_scripts/preprocess.sh
+bash models/openpi/run_scripts/training.sh
 ```
 
 ## Inference Input Keys
