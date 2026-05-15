@@ -36,6 +36,7 @@ num_workers    = config["num_workers"]
 z_loss_weight  = config["train_z_loss_weight"]
 lora_r         = config["lora_r"]
 lora_alpha     = config["lora_alpha"]
+action_norm_joint_scales = config.get("action_norm_joint_scales")
 action_stats   = os.path.join(work_dir, "min_max_action.txt")
 state_stats    = os.path.join(work_dir, "min_max_state.txt")
 
@@ -106,5 +107,7 @@ print(f"  output:  {output_dir}")
 env = os.environ.copy()
 env["RYNNVLA_ACTION_STATS_FILE"] = action_stats
 env["RYNNVLA_STATE_STATS_FILE"] = state_stats
+if action_norm_joint_scales:
+    env["RYNNVLA_ACTION_NORM_SCALES"] = str(action_norm_joint_scales)
 result = subprocess.run(cmd, env=env)
 sys.exit(result.returncode)

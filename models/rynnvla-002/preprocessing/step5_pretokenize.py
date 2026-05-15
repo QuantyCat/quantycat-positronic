@@ -25,6 +25,7 @@ label       = config["task_label"]
 his         = config["his"]
 resolution  = config["resolution"]
 deterministic_crop = bool(config.get("deterministic_crop", False))
+action_norm_joint_scales = config.get("action_norm_joint_scales")
 action_stats = os.path.join(work_dir, "min_max_action.txt")
 state_stats = os.path.join(work_dir, "min_max_state.txt")
 
@@ -67,6 +68,8 @@ os.makedirs(output_dir, exist_ok=True)
 env = os.environ.copy()
 env["RYNNVLA_ACTION_STATS_FILE"] = action_stats
 env["RYNNVLA_STATE_STATS_FILE"] = state_stats
+if action_norm_joint_scales:
+    env["RYNNVLA_ACTION_NORM_SCALES"] = str(action_norm_joint_scales)
 
 for split_name, conv_path in split_inputs:
     split_output_dir = os.path.join(output_dir, split_name)

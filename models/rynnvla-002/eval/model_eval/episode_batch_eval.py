@@ -91,6 +91,8 @@ def _configure_env(root: Path, cfg: dict[str, Any]) -> Path:
         work_dir = (root / work_dir).resolve()
     os.environ["RYNNVLA_ACTION_STATS_FILE"] = str((work_dir / "min_max_action.txt").resolve())
     os.environ["RYNNVLA_STATE_STATS_FILE"] = str((work_dir / "min_max_state.txt").resolve())
+    if cfg.get("action_norm_joint_scales"):
+        os.environ["RYNNVLA_ACTION_NORM_SCALES"] = str(cfg["action_norm_joint_scales"])
     return work_dir
 
 

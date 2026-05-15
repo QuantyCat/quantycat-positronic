@@ -217,6 +217,8 @@ def main() -> None:
         work_dir = (root / work_dir).resolve()
     os.environ["RYNNVLA_ACTION_STATS_FILE"] = str((work_dir / "min_max_action.txt").resolve())
     os.environ["RYNNVLA_STATE_STATS_FILE"] = str((work_dir / "min_max_state.txt").resolve())
+    if cfg.get("action_norm_joint_scales"):
+        os.environ["RYNNVLA_ACTION_NORM_SCALES"] = str(cfg["action_norm_joint_scales"])
 
     ckpt_path = _resolve_checkpoint(args, cfg)
     _ensure_rynnvla_on_path(args.rynnvla_repo.strip() or None)

@@ -243,6 +243,8 @@ def main() -> None:
         work_dir = (root / work_dir).resolve()
     os.environ["RYNNVLA_ACTION_STATS_FILE"] = str((work_dir / "min_max_action.txt").resolve())
     os.environ["RYNNVLA_STATE_STATS_FILE"] = str((work_dir / "min_max_state.txt").resolve())
+    if positronic_cfg.get("action_norm_joint_scales"):
+        os.environ["RYNNVLA_ACTION_NORM_SCALES"] = str(positronic_cfg["action_norm_joint_scales"])
 
     if args.prompt is None:
         args.prompt = _cfg("prompt", required=True)

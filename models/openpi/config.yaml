@@ -1,56 +1,44 @@
-# Paths — relative to repo root
-input_dir: my_data/input_data
-work_dir: my_data/training_pipeline
+# Quantycat SO-101 openpi / pi05 configuration.
+#
+# This file is intentionally local-path based. The dataset is already in
+# LeRobot v2.1 format at input_dir and should not need a HuggingFace upload
+# unless the installed openpi/LeRobot version refuses local paths.
+
+input_dir: /home/caroline/quantycat-positronic/my_data/input_data
+work_dir: /home/caroline/quantycat-positronic/my_data/training_pipeline/openpi
+
 task_label: screwdriver
-robot: so101
-training_run_name: screwdriver_so101_openpi_v1
+robot: so101_follower
+prompt: "Put the screwdriver into the cup"
 
-# HuggingFace repo id for your LeRobot dataset, OR an absolute local path.
-# openpi's data loader calls LeRobotDataset(hf_repo_id), so the dataset must
-# be either uploaded to HF hub or accessible as a local LeRobot-format directory.
-# Example (HF hub):  physical-intelligence/my_so101_dataset
-# Example (local):   /home/caroline/quantycat-positronic/my_data/input_data
-hf_repo_id: ~
+# openpi TrainConfig name to add/register.
+config_name: pi05_quantycat
+training_run_name: screwdriver_so101_pi05_h20_v1
 
-# Must be consistent across preprocessing, training, and inference
+# Dataset schema.
+state_dim: 6
 action_dim: 6
-action_horizon: 5
-max_token_len: 180    # 180 is the recommended default for single-arm robots
+action_horizon: 20
+fps: 30
 
-# Model variant:
-#   pi0        — full fine-tune (~3B params, requires ~40 GB VRAM)
-#   pi0_lora   — LoRA fine-tune (~fewer trainable params, ~24 GB VRAM)
-#   pi0_fast   — pi0-FAST full fine-tune (action-tokenizer head)
-model_type: pi0
+# Model.
+model_type: pi05
+base_checkpoint: gs://openpi-assets/checkpoints/pi05_base/params
 
-# Optional: path to a local PyTorch checkpoint to initialise weights from.
-# Leave blank to download the base checkpoint from GCS via openpi's weight loader.
-# Example: /home/caroline/openpi/checkpoints/pi0_base/model.safetensors
-base_pytorch_checkpoint: ~
-
-# Training
-batch_size: 4
+# Training defaults. Tune after the first loader/norm-stats smoke test.
+batch_size: 8
 num_workers: 2
-num_train_steps: 30000
-lr: 5.0e-5
-warmup_steps: 1000
-seed: 42
+num_train_steps: 5000
 save_interval: 1000
+keep_period: 5000
+seed: 42
 wandb_enabled: false
 overwrite: false
 resume: false
 
-# Inference
-checkpoint: ~   # path to checkpoint directory from training, e.g. my_data/training_pipeline/fine_tuning/<run>/29999
-prompt: "Put the screwdriver into the cup"
-robot_port: /dev/ttyACM0
-robot_id: so101_follower
-front_camera_index: /dev/video0
-wrist_camera_index: /dev/video4
-camera_width: 640
-camera_height: 480
-camera_fps: 30
-gpu: 0
-control_period_s: 0.05
-execute_steps_per_inference: 2
-max_steps: 0
+# Action convention for this dataset:
+# action/state are 6-D absolute joint/gripper positions.
+# During training, joints 0-4 should be converted to deltas relative to state;
+# gripper dim 5 remains absolute.
+delta_action_dims: 5
+absolute_action_dims: 1

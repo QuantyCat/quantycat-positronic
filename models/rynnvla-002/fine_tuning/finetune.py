@@ -19,10 +19,16 @@ CONFIG_PATH = "models/rynnvla-002/config.yaml"
 with open(CONFIG_PATH) as f:
     config = yaml.safe_load(f)
 
+def env_bool(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return bool(default)
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
 work_dir       = os.path.abspath(config["work_dir"])
 task_label     = config["task_label"]
 robot          = config["robot"]
-training_run_name = config.get("training_run_name") or f"{task_label}_{robot}"
+training_run_name = os.environ.get("RYNNVLA_TRAINING_RUN_NAME") or config.get("training_run_name") or f"{task_label}_{robot}"
 action_dim     = config["action_dim"]
 chunk_size     = config["chunk_size"]
 his            = config["his"]
@@ -30,7 +36,7 @@ resolution     = config["resolution"]
 batch_size     = config["batch_size"]
 accum_iter     = config["accum_iter"]
 num_workers    = config["num_workers"]
-epochs         = config["epochs"]
+epochs         = int(os.environ.get("RYNNVLA_EPOCHS", config["epochs"]))
 lr             = config["lr"]
 min_lr         = config["min_lr"]
 clip_grad      = config["clip_grad"]
@@ -57,12 +63,15 @@ action_magnitude_loss_weight = config.get("action_magnitude_loss_weight", 0.0)
 action_magnitude_eps = config.get("action_magnitude_eps", 0.08)
 action_magnitude_joint_weights = config.get("action_magnitude_joint_weights")
 action_magnitude_horizon_weights = config.get("action_magnitude_horizon_weights")
+action_norm_joint_scales = config.get("action_norm_joint_scales")
 lora_r         = config["lora_r"]
 lora_alpha     = config["lora_alpha"]
+train_lm_head  = env_bool("RYNNVLA_TRAIN_LM_HEAD", config.get("train_lm_head", True))
 ckpt_max_keep  = config["ckpt_max_keep"]
 save_interval  = config["save_interval"]
-fresh_start    = config.get("fresh_start", False)
-resume_from_checkpoint = config.get("resume_from_checkpoint")
+fresh_start    = env_bool("RYNNVLA_FRESH_START", config.get("fresh_start", False))
+resume_from_checkpoint = os.environ.get("RYNNVLA_RESUME_FROM_CHECKPOINT", config.get("resume_from_checkpoint"))
+ft_from_checkpoint = env_bool("RYNNVLA_FT_FROM_CHECKPOINT", False)
 run_validation = bool(config.get("run_validation", False))
 action_stats   = os.path.join(work_dir, "min_max_action.txt")
 state_stats    = os.path.join(work_dir, "min_max_state.txt")
@@ -136,11 +145,12 @@ print(f"  Output:    {output_dir}")
 print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}  loss_ct_weights={loss_ct_weights}  action_sign_loss_weight={action_sign_loss_weight}  action_sign_eps={action_sign_eps}  action_sign_center={action_sign_center}  action_sign_margin={action_sign_margin}  action_wrong_sign_loss_multiplier={action_wrong_sign_loss_multiplier}  action_wrong_sign_joint_weights={action_wrong_sign_joint_weights}  action_sign_joint_weights={action_sign_joint_weights}  action_sign_horizon_weights={action_sign_horizon_weights}  action_quiet_loss_weight={action_quiet_loss_weight}  action_quiet_eps={action_quiet_eps}  action_quiet_pred_eps={action_quiet_pred_eps}  action_quiet_joint_weights={action_quiet_joint_weights}  action_quiet_horizon_weights={action_quiet_horizon_weights}  action_motion_loss_weight={action_motion_loss_weight}  action_motion_eps={action_motion_eps}  action_motion_joint_weights={action_motion_joint_weights}  action_motion_horizon_weights={action_motion_horizon_weights}  action_magnitude_loss_weight={action_magnitude_loss_weight}  action_magnitude_eps={action_magnitude_eps}  action_magnitude_joint_weights={action_magnitude_joint_weights}  action_magnitude_horizon_weights={action_magnitude_horizon_weights}")
 print()
 
-# Trainable params: lora_weight_ + action_head + lm_head
+# Trainable params: lora_weight_ + action_head, plus lm_head when enabled
 # The model lacks get_trainable_params so the trainer warns and falls back to is_lora detection.
 # When lora_r > 0 the is_lora check is True and requires_grad is left exactly as add_lora_to_model
 # set it — correct behaviour despite the warning.
-print(f"  LoRA: r={lora_r} alpha={lora_alpha}  trainable=lora_weight_+action_head+lm_head")
+lm_head_trainable_label = "+lm_head" if train_lm_head else ""
+print(f"  LoRA: r={lora_r} alpha={lora_alpha}  trainable=lora_weight_+action_head{lm_head_trainable_label}")
 print()
 
 # Resolve torchrun from the same Python environment as this script
@@ -209,6 +219,11 @@ cmd = [
     "--lora_alpha", str(lora_alpha),
 ] + train_only_flags + resume_flags
 
+if train_lm_head:
+    cmd.append("--train_lm_head")
+if ft_from_checkpoint:
+    cmd.extend(["--ft", "True"])
+
 log_path = os.path.join(output_dir, "output.log")
 print(f"  Log: {log_path}")
 print()
@@ -217,6 +232,8 @@ with open(log_path, "a") as log:
     env = os.environ.copy()
     env["RYNNVLA_ACTION_STATS_FILE"] = action_stats
     env["RYNNVLA_STATE_STATS_FILE"] = state_stats
+    if action_norm_joint_scales:
+        env["RYNNVLA_ACTION_NORM_SCALES"] = str(action_norm_joint_scales)
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
     for line in proc.stdout:
         print(line, end="")

@@ -1,31 +1,36 @@
 #!/usr/bin/env bash
-# Compute openpi normalisation statistics for the SO-101 dataset.
+# Compute openpi normalization statistics for the Quantycat SO-101 dataset.
 #
-# Run after setting hf_repo_id in models/openpi/config.yaml.
-#
-# Usage:
-#   source models/openpi/run_scripts/setup.sh
+# Usage from /home/caroline/quantycat-positronic:
 #   bash models/openpi/run_scripts/preprocess.sh
 
-_fail_preprocess() {
-    return 1 2>/dev/null || exit 1
-}
+set -euo pipefail
 
-if [ -z "$MODEL_ROOT" ] || [ -z "$PYTHON" ]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    MODEL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-    if [ -z "$PYTHON" ]; then
-        PYTHON="$(command -v python3)"
-    fi
+OPENPI_REPO="${OPENPI_REPO:-/home/caroline/openpi}"
+NORM_STATS_PATH="/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/norm_stats.json"
+
+if [ ! -d "$OPENPI_REPO" ]; then
+    echo "ERROR: openpi repo not found at: $OPENPI_REPO"
+    exit 1
 fi
 
-if [ -z "$MODEL_ROOT" ] || [ -z "$PYTHON" ]; then
-    echo "ERROR: source $MODEL_ROOT/run_scripts/setup.sh first"
-    _fail_preprocess
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ERROR: uv is not installed or not on PATH. Run setup first:"
+    echo "  bash models/openpi/run_scripts/setup.sh"
+    exit 1
 fi
 
-echo "--- Step 1: Compute openpi normalisation statistics ---"
-$PYTHON "$MODEL_ROOT/preprocessing/step1_compute_norm_stats.py" || _fail_preprocess
+cd "$OPENPI_REPO"
+
+echo "Computing norm stats for pi05_quantycat"
+uv run scripts/compute_norm_stats.py --config-name pi05_quantycat
+
+if [ ! -f "$NORM_STATS_PATH" ]; then
+    echo "ERROR: expected norm stats not found at:"
+    echo "  $NORM_STATS_PATH"
+    exit 1
+fi
 
 echo ""
-echo "Preprocessing complete."
+echo "Norm stats ready:"
+echo "  $NORM_STATS_PATH"
