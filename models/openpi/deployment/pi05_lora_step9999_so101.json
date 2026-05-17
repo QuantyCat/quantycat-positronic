@@ -1,0 +1,45 @@
+{
+  "name": "openpi_pi05_h20_lora_step9999_so101_screwdriver",
+  "model": {
+    "openpi_repo": "/home/caroline/openpi",
+    "config_name": "pi05_quantycat_lora",
+    "checkpoint_path": "/home/caroline/openpi_checkpoints/pi05_quantycat_lora/screwdriver_so101_pi05_h20_lora_20260516_pdt/9999",
+    "prompt": "Put the screwdriver into the cup",
+    "sample_steps": 10,
+    "pytorch_device": null
+  },
+  "robot": {
+    "robot_port": "/dev/ttyACM0",
+    "robot_id": "so101_follower",
+    "front_camera_key": "front",
+    "wrist_camera_key": "wrist",
+    "front_camera_index": "/dev/video0",
+    "wrist_camera_index": "/dev/video4",
+    "camera_width": 640,
+    "camera_height": 480,
+    "camera_fps": 30,
+    "live_state_units": "deg",
+    "model_state_units": "rad"
+  },
+  "control": {
+    "max_steps": 20,
+    "execute_steps_per_inference": 1,
+    "control_period_s": 0.10,
+    "connect_calibrate": true,
+    "save_latest_observation": true,
+    "log_dir": "run_logs/openpi_live_so101"
+  },
+  "calibration": {
+    "action_convention": "OpenPI outputs absolute 6-D joint/gripper targets in model units. Apply gain to target-current deltas before sending.",
+    "gain_vector": [1.0, 1.0, 1.0, 1.0, 1.025, 1.0],
+    "source": "eval_output/screwdriver_so101/model_eval/openpi_pi05_h20_lora_step9999_gain_calibration_fine/gain_calibration_summary.md"
+  },
+  "safety": {
+    "target_limits_deg": {
+      "min": [-70.0, -100.0, -17.0, -18.0, -73.0, 0.0],
+      "max": [67.0, 25.0, 100.0, 87.0, 72.0, 29.0]
+    },
+    "max_delta_per_command_deg": [4.0, 4.0, 4.0, 4.0, 4.0, 2.0],
+    "abort_on_nonfinite": true
+  }
+}

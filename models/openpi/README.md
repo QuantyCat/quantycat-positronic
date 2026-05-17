@@ -26,6 +26,8 @@ and the active policy transform is:
 - `run_scripts/setup.sh` - install/sync the OpenPI environment.
 - `run_scripts/preprocess.sh` - compute OpenPI norm stats.
 - `run_scripts/training.sh` - launch training with `pi05_quantycat`.
+- `run_scripts/live_so101_step9999.sh` - launch the live SO-101 OpenPI wrapper.
+- `deployment/` - live robot config, runner, and control-machine checklist.
 - `training_config/quantycat_policy.py` - optional readable copy of the policy
   transform. The live copy is in `/home/caroline/openpi`.
 
@@ -38,6 +40,44 @@ bash models/openpi/run_scripts/setup.sh
 bash models/openpi/run_scripts/preprocess.sh
 bash models/openpi/run_scripts/training.sh
 ```
+
+## Live SO-101 Deployment
+
+The current deployment candidate is the OpenPI pi0.5 LoRA continuation checkpoint
+at step `9999`, using config name:
+
+```text
+pi05_quantycat_lora
+```
+
+The checkpoint is not stored in this repo. Download/copy it separately onto the
+robot control computer, then update or override:
+
+```text
+models/openpi/deployment/pi05_lora_step9999_so101.json
+```
+
+Run the deployment checks from the repo root:
+
+```bash
+bash models/openpi/run_scripts/live_so101_step9999.sh --check-only --skip-policy-load
+bash models/openpi/run_scripts/live_so101_step9999.sh --check-only --checkpoint /path/to/9999
+```
+
+Then dry-run before sending commands:
+
+```bash
+bash models/openpi/run_scripts/live_so101_step9999.sh --dry-run --checkpoint /path/to/9999 --max-steps 5
+```
+
+The default live gain vector is:
+
+```text
+[1.000, 1.000, 1.000, 1.000, 1.025, 1.000]
+```
+
+Gain is applied to `predicted_target - current_state`, then the runner clips
+per-command deltas and final targets before sending actions to SO-101.
 
 ## Inference Input Keys
 

@@ -4,7 +4,7 @@ work_dir: my_data/training_pipeline
 training_output: eval_output
 task_label: screwdriver
 robot: so101
-training_run_name: screwdriver_so101_h1j01234_alljoints_lmheadoff_unscaled_scratch
+training_run_name: screwdriver_so101_h1j01234_alljoints_lmheadoff_unscaled_signroute_scratch
 
 # Must be consistent across preprocessing, training, and inference
 chunk_size: 5
@@ -50,7 +50,7 @@ action_magnitude_eps: 0.08
 action_magnitude_joint_weights: [3, 1, 1, 2, 2, 0]
 action_magnitude_horizon_weights: [1.0, 0.75, 0.5, 0.25, 0.1]
 action_norm_joint_scales:
-fresh_start: false
+fresh_start: true
 resume_from_checkpoint:
 ckpt_max_keep: 3
 save_interval: 2000
@@ -59,6 +59,8 @@ save_interval: 2000
 lora_r: 16
 lora_alpha: 32
 train_lm_head: false
+action_head_detach_hidden_states: false
+action_head_loss_routing: sign_to_backbone
 
 # Inference
 checkpoint: /home/caroline/quantycat-positronic/my_data/training_pipeline/fine_tuning/testing_checkpoints/h1j123_j3restore_epoch8_robot_test_candidate

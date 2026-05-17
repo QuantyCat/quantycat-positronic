@@ -63,6 +63,8 @@ action_magnitude_loss_weight = config.get("action_magnitude_loss_weight", 0.0)
 action_magnitude_eps = config.get("action_magnitude_eps", 0.08)
 action_magnitude_joint_weights = config.get("action_magnitude_joint_weights")
 action_magnitude_horizon_weights = config.get("action_magnitude_horizon_weights")
+action_head_detach_hidden_states = env_bool("RYNNVLA_ACTION_HEAD_DETACH_HIDDEN_STATES", config.get("action_head_detach_hidden_states", False))
+action_head_loss_routing = os.environ.get("RYNNVLA_ACTION_HEAD_LOSS_ROUTING", config.get("action_head_loss_routing", "default"))
 action_norm_joint_scales = config.get("action_norm_joint_scales")
 lora_r         = config["lora_r"]
 lora_alpha     = config["lora_alpha"]
@@ -142,7 +144,7 @@ print(f"  Train data: {data_config_train}")
 if run_validation:
     print(f"  Val data:   {data_config_val_ind}")
 print(f"  Output:    {output_dir}")
-print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}  loss_ct_weights={loss_ct_weights}  action_sign_loss_weight={action_sign_loss_weight}  action_sign_eps={action_sign_eps}  action_sign_center={action_sign_center}  action_sign_margin={action_sign_margin}  action_wrong_sign_loss_multiplier={action_wrong_sign_loss_multiplier}  action_wrong_sign_joint_weights={action_wrong_sign_joint_weights}  action_sign_joint_weights={action_sign_joint_weights}  action_sign_horizon_weights={action_sign_horizon_weights}  action_quiet_loss_weight={action_quiet_loss_weight}  action_quiet_eps={action_quiet_eps}  action_quiet_pred_eps={action_quiet_pred_eps}  action_quiet_joint_weights={action_quiet_joint_weights}  action_quiet_horizon_weights={action_quiet_horizon_weights}  action_motion_loss_weight={action_motion_loss_weight}  action_motion_eps={action_motion_eps}  action_motion_joint_weights={action_motion_joint_weights}  action_motion_horizon_weights={action_motion_horizon_weights}  action_magnitude_loss_weight={action_magnitude_loss_weight}  action_magnitude_eps={action_magnitude_eps}  action_magnitude_joint_weights={action_magnitude_joint_weights}  action_magnitude_horizon_weights={action_magnitude_horizon_weights}")
+print(f"  fresh_start={fresh_start}  run_validation={run_validation}  lr={lr}  epochs={epochs}  accum_iter={accum_iter}  clip_grad={clip_grad}  z_loss_weight={z_loss_weight}  loss_ct_weights={loss_ct_weights}  action_head_detach_hidden_states={action_head_detach_hidden_states}  action_head_loss_routing={action_head_loss_routing}  action_sign_loss_weight={action_sign_loss_weight}  action_sign_eps={action_sign_eps}  action_sign_center={action_sign_center}  action_sign_margin={action_sign_margin}  action_wrong_sign_loss_multiplier={action_wrong_sign_loss_multiplier}  action_wrong_sign_joint_weights={action_wrong_sign_joint_weights}  action_sign_joint_weights={action_sign_joint_weights}  action_sign_horizon_weights={action_sign_horizon_weights}  action_quiet_loss_weight={action_quiet_loss_weight}  action_quiet_eps={action_quiet_eps}  action_quiet_pred_eps={action_quiet_pred_eps}  action_quiet_joint_weights={action_quiet_joint_weights}  action_quiet_horizon_weights={action_quiet_horizon_weights}  action_motion_loss_weight={action_motion_loss_weight}  action_motion_eps={action_motion_eps}  action_motion_joint_weights={action_motion_joint_weights}  action_motion_horizon_weights={action_motion_horizon_weights}  action_magnitude_loss_weight={action_magnitude_loss_weight}  action_magnitude_eps={action_magnitude_eps}  action_magnitude_joint_weights={action_magnitude_joint_weights}  action_magnitude_horizon_weights={action_magnitude_horizon_weights}")
 print()
 
 # Trainable params: lora_weight_ + action_head, plus lm_head when enabled
@@ -213,6 +215,7 @@ cmd = [
     "--action_magnitude_eps", str(action_magnitude_eps),
     "--action_magnitude_joint_weights", str(action_magnitude_joint_weights) if action_magnitude_joint_weights is not None else "",
     "--action_magnitude_horizon_weights", str(action_magnitude_horizon_weights) if action_magnitude_horizon_weights is not None else "",
+    "--action_head_loss_routing", str(action_head_loss_routing),
     "--ckpt_max_keep", str(ckpt_max_keep),
     "--save_iteration_interval", str(save_interval),
     "--lora_r", str(lora_r),
@@ -221,6 +224,8 @@ cmd = [
 
 if train_lm_head:
     cmd.append("--train_lm_head")
+if action_head_detach_hidden_states:
+    cmd.append("--action_head_detach_hidden_states")
 if ft_from_checkpoint:
     cmd.extend(["--ft", "True"])
 
