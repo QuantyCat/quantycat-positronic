@@ -7,8 +7,8 @@
 set -euo pipefail
 
 OPENPI_REPO="${OPENPI_REPO:-/home/caroline/Desktop/OpenPi}"
-CONFIG_NAME="${CONFIG_NAME:-pi05_quantycat}"
-EXP_NAME="${EXP_NAME:-screwdriver_so101_pi05_h20_v1}"
+CONFIG_NAME="${CONFIG_NAMcaE:-pi05_quantycat_lora}"
+EXP_NAME="${EXP_NAME:-screwdriver_so101_pi05_h20_lora_v1}"
 NORM_STATS_PATH="/home/caroline/Desktop/quantycat-positronic/my_data/training_pipeline/openpi/norm_stats.json"
 CHECKPOINT_DIR="/home/caroline/Desktop/quantycat-positronic/my_data/training_pipeline/openpi/checkpoints/${CONFIG_NAME}/${EXP_NAME}"
 
