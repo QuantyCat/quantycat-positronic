@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Set up the openpi environment used by the Quantycat SO-101 pi05 config.
 #
-# Usage from /home/caroline/quantycat-positronic:
+# Usage from /home/caroline/Desktop/quantycat-positronic:
 #   bash models/openpi/run_scripts/setup.sh
 #
 # This script does not patch openpi. It assumes /home/caroline/openpi already
@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-OPENPI_REPO="${OPENPI_REPO:-/home/caroline/openpi}"
+OPENPI_REPO="${OPENPI_REPO:-/home/caroline/Desktop/OpenPi}"
 
 if [ ! -d "$OPENPI_REPO" ]; then
     echo "ERROR: openpi repo not found at: $OPENPI_REPO"
@@ -17,8 +17,12 @@ if [ ! -d "$OPENPI_REPO" ]; then
     exit 1
 fi
 
-if ! command -v uv >/dev/null 2>&1; then
-    echo "ERROR: uv is not installed or not on PATH."
+if command -v uv >/dev/null 2>&1; then
+    UV_CMD=(uv)
+elif python3 -m uv --version >/dev/null 2>&1; then
+    UV_CMD=(python3 -m uv)
+else
+    echo "ERROR: uv is not installed or not runnable."
     echo ""
     echo "Install uv with one of:"
     echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
@@ -34,13 +38,13 @@ fi
 cd "$OPENPI_REPO"
 
 echo "Syncing openpi dependencies in $OPENPI_REPO"
-GIT_LFS_SKIP_SMUDGE=1 uv sync
+GIT_LFS_SKIP_SMUDGE=1 "${UV_CMD[@]}" sync
 
 echo "Installing openpi editable package"
-GIT_LFS_SKIP_SMUDGE=1 uv pip install -e .
+GIT_LFS_SKIP_SMUDGE=1 "${UV_CMD[@]}" pip install -e .
 
 echo ""
 echo "Setup complete."
 echo "Next step:"
-echo "  cd /home/caroline/quantycat-positronic"
+echo "  cd /home/caroline/Desktop/quantycat-positronic"
 echo "  bash models/openpi/run_scripts/preprocess.sh"

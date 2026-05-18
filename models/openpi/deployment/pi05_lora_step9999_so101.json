@@ -1,9 +1,9 @@
 {
-  "name": "openpi_pi05_h20_lora_step9999_so101_screwdriver",
+  "name": "openpi_pi05_h20_quantycat_so101_screwdriver",
   "model": {
-    "openpi_repo": "/home/caroline/openpi",
-    "config_name": "pi05_quantycat_lora",
-    "checkpoint_path": "/home/caroline/openpi_checkpoints/pi05_quantycat_lora/screwdriver_so101_pi05_h20_lora_20260516_pdt/9999",
+    "openpi_repo": "/home/caroline/Desktop/OpenPi",
+    "config_name": "pi05_quantycat",
+    "checkpoint_path": "/home/caroline/Desktop/fine_tuning/screwdriver_so101/05172026_pi05_h20_lora",
     "prompt": "Put the screwdriver into the cup",
     "sample_steps": 10,
     "pytorch_device": null
@@ -13,8 +13,8 @@
     "robot_id": "so101_follower",
     "front_camera_key": "front",
     "wrist_camera_key": "wrist",
-    "front_camera_index": "/dev/video0",
-    "wrist_camera_index": "/dev/video4",
+    "front_camera_index": 2,
+    "wrist_camera_index": 0,
     "camera_width": 640,
     "camera_height": 480,
     "camera_fps": 30,
@@ -40,6 +40,9 @@
       "max": [67.0, 25.0, 100.0, 87.0, 72.0, 29.0]
     },
     "max_delta_per_command_deg": [4.0, 4.0, 4.0, 4.0, 4.0, 2.0],
-    "abort_on_nonfinite": true
+    "abort_on_nonfinite": true,
+    "abort_on_ood_state": true,
+    "state_stats_margin_deg": 5.0,
+    "state_limit_margin_deg": 5.0
   }
 }

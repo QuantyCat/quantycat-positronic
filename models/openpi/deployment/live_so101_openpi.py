@@ -24,6 +24,7 @@ _MOTOR_NAMES: tuple[str, ...] = (
     "gripper",
 )
 _DEFAULT_CONFIG = "models/openpi/deployment/pi05_lora_step9999_so101.json"
+_NEW_LEROBOT_CALIBRATION_DIR = Path("/home/caroline/.cache/huggingface/lerobot/calibration/robots/so_follower")
 
 
 def _repo_root() -> Path:
@@ -37,6 +38,12 @@ def _stamp() -> str:
 def _load_json(path: Path) -> dict[str, Any]:
     if not path.is_file():
         raise FileNotFoundError(path)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _maybe_load_json(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -93,12 +100,19 @@ def _obs_to_policy_input(obs: dict[str, Any], cfg: dict[str, Any]) -> tuple[dict
     robot_cfg = cfg["robot"]
     front_key = robot_cfg["front_camera_key"]
     wrist_key = robot_cfg["wrist_camera_key"]
-    if front_key not in obs or wrist_key not in obs:
-        raise KeyError(f"Observation missing camera keys {front_key!r}/{wrist_key!r}; got {sorted(obs)}")
+    front_obs_key = front_key if front_key in obs else f"observation.images.{front_key}"
+    wrist_obs_key = wrist_key if wrist_key in obs else f"observation.images.{wrist_key}"
+    if front_obs_key not in obs or wrist_obs_key not in obs:
+        raise KeyError(
+            f"Observation missing camera keys {front_key!r}/{wrist_key!r}; got {sorted(obs)}"
+        )
 
-    front = np.asarray(obs[front_key])
-    wrist = np.asarray(obs[wrist_key])
-    state_raw = np.array([float(obs[f"{motor}.pos"]) for motor in _MOTOR_NAMES], dtype=np.float64)
+    front = np.asarray(obs[front_obs_key])
+    wrist = np.asarray(obs[wrist_obs_key])
+    if "observation.state" in obs:
+        state_raw = np.asarray(obs["observation.state"], dtype=np.float64).reshape(-1)
+    else:
+        state_raw = np.array([float(obs[f"{motor}.pos"]) for motor in _MOTOR_NAMES], dtype=np.float64)
     state_model = _state_to_model_units(state_raw, cfg)
     policy_obs = {
         "observation/images/front": front,
@@ -156,31 +170,121 @@ def _calibrate_and_clip(
 
 
 def _make_robot(cfg: dict[str, Any]):
-    from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig
-    from lerobot.robots.so_follower.config_so_follower import SO101FollowerConfig
-    from lerobot.robots.utils import make_robot_from_config
-
     robot_cfg = cfg["robot"]
-    cameras = {
-        robot_cfg["front_camera_key"]: OpenCVCameraConfig(
-            index_or_path=_as_camera_index(robot_cfg["front_camera_index"]),
-            fps=int(robot_cfg["camera_fps"]),
-            width=int(robot_cfg["camera_width"]),
-            height=int(robot_cfg["camera_height"]),
-        ),
-        robot_cfg["wrist_camera_key"]: OpenCVCameraConfig(
-            index_or_path=_as_camera_index(robot_cfg["wrist_camera_index"]),
-            fps=int(robot_cfg["camera_fps"]),
-            width=int(robot_cfg["camera_width"]),
-            height=int(robot_cfg["camera_height"]),
-        ),
-    }
-    robot_config = SO101FollowerConfig(
-        port=robot_cfg["robot_port"],
-        id=robot_cfg["robot_id"],
-        cameras=cameras,
-    )
-    return make_robot_from_config(robot_config)
+    try:
+        from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig
+        from lerobot.robots.so_follower.config_so_follower import SO101FollowerConfig
+        from lerobot.robots.utils import make_robot_from_config
+
+        cameras = {
+            robot_cfg["front_camera_key"]: OpenCVCameraConfig(
+                index_or_path=_as_camera_index(robot_cfg["front_camera_index"]),
+                fps=int(robot_cfg["camera_fps"]),
+                width=int(robot_cfg["camera_width"]),
+                height=int(robot_cfg["camera_height"]),
+            ),
+            robot_cfg["wrist_camera_key"]: OpenCVCameraConfig(
+                index_or_path=_as_camera_index(robot_cfg["wrist_camera_index"]),
+                fps=int(robot_cfg["camera_fps"]),
+                width=int(robot_cfg["camera_width"]),
+                height=int(robot_cfg["camera_height"]),
+            ),
+        }
+        robot_config = SO101FollowerConfig(
+            port=robot_cfg["robot_port"],
+            id=robot_cfg["robot_id"],
+            cameras=cameras,
+        )
+        return make_robot_from_config(robot_config)
+    except ModuleNotFoundError:
+        from lerobot.common.robot_devices.cameras.configs import OpenCVCameraConfig
+        from lerobot.common.robot_devices.motors.configs import FeetechMotorsBusConfig
+        from lerobot.common.robot_devices.robots.configs import So101RobotConfig
+        from lerobot.common.robot_devices.robots.utils import make_robot_from_config
+
+        cameras = {
+            robot_cfg["front_camera_key"]: OpenCVCameraConfig(
+                camera_index=_as_camera_index(robot_cfg["front_camera_index"]),
+                fps=int(robot_cfg["camera_fps"]),
+                width=int(robot_cfg["camera_width"]),
+                height=int(robot_cfg["camera_height"]),
+            ),
+            robot_cfg["wrist_camera_key"]: OpenCVCameraConfig(
+                camera_index=_as_camera_index(robot_cfg["wrist_camera_index"]),
+                fps=int(robot_cfg["camera_fps"]),
+                width=int(robot_cfg["camera_width"]),
+                height=int(robot_cfg["camera_height"]),
+            ),
+        }
+        follower_bus = FeetechMotorsBusConfig(
+            port=robot_cfg["robot_port"],
+            motors={
+                "shoulder_pan": [1, "sts3215"],
+                "shoulder_lift": [2, "sts3215"],
+                "elbow_flex": [3, "sts3215"],
+                "wrist_flex": [4, "sts3215"],
+                "wrist_roll": [5, "sts3215"],
+                "gripper": [6, "sts3215"],
+            },
+        )
+        compat_calibration_dir = _prepare_compat_calibration(robot_cfg["robot_id"])
+        robot_config = So101RobotConfig(
+            calibration_dir=str(compat_calibration_dir),
+            leader_arms={},
+            follower_arms={"so101": follower_bus},
+            cameras=cameras,
+        )
+        return make_robot_from_config(robot_config)
+
+
+def _connect_robot(robot: Any, control: dict[str, Any]) -> None:
+    def _try_connect() -> None:
+        try:
+            robot.connect(calibrate=bool(control.get("connect_calibrate", True)))
+        except TypeError:
+            robot.connect()
+
+    def _cleanup_partial_connect() -> None:
+        for attr in ("cameras", "leader_arms", "follower_arms"):
+            devices = getattr(robot, attr, {})
+            if isinstance(devices, dict):
+                for device in devices.values():
+                    try:
+                        if getattr(device, "is_connected", False):
+                            device.disconnect()
+                    except Exception:
+                        pass
+        if hasattr(robot, "is_connected"):
+            robot.is_connected = False
+
+    try:
+        _try_connect()
+        return
+    except ConnectionError as e:
+        message = str(e).lower()
+        if "no status packet" not in message and "communication error" not in message:
+            raise
+        print(f"WARNING: initial robot connect failed ({e}). Retrying once after cleanup...")
+        _cleanup_partial_connect()
+        time.sleep(0.5)
+        _try_connect()
+
+
+def _read_observation(robot: Any) -> dict[str, Any]:
+    if hasattr(robot, "get_observation"):
+        return robot.get_observation()
+    if hasattr(robot, "capture_observation"):
+        return robot.capture_observation()
+    raise AttributeError("Robot object does not provide get_observation() or capture_observation().")
+
+
+def _send_robot_action(robot: Any, target_live: np.ndarray) -> Any:
+    if hasattr(robot, "get_observation"):
+        return robot.send_action(_action_vector_to_robot_dict(target_live))
+
+    import torch
+
+    return robot.send_action(torch.as_tensor(target_live, dtype=torch.float32))
 
 
 def _load_policy(root: Path, cfg: dict[str, Any]):
@@ -213,6 +317,86 @@ def _load_policy(root: Path, cfg: dict[str, Any]):
     )
 
 
+def _load_state_stats(root: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
+    checkpoint = _resolve_path(root, cfg["model"]["checkpoint_path"])
+    if checkpoint is None:
+        return None
+    stats_path = checkpoint / "assets" / "openpi" / "norm_stats.json"
+    payload = _maybe_load_json(stats_path)
+    if payload is None:
+        return None
+
+    state_stats = payload.get("norm_stats", {}).get("state")
+    if not isinstance(state_stats, dict) or "q01" not in state_stats or "q99" not in state_stats:
+        return None
+
+    q01 = _vector(state_stats["q01"], name="norm_stats.state.q01")
+    q99 = _vector(state_stats["q99"], name="norm_stats.state.q99")
+    return {"q01": q01, "q99": q99, "path": str(stats_path)}
+
+
+def _state_guard_issue(
+    state_model: np.ndarray,
+    cfg: dict[str, Any],
+    state_stats: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not cfg["safety"].get("abort_on_ood_state", True):
+        return None
+
+    state = np.asarray(state_model, dtype=np.float64).reshape(-1)[:6]
+    issues: list[dict[str, Any]] = []
+
+    if state_stats is not None:
+        q01 = np.asarray(state_stats["q01"], dtype=np.float64)
+        q99 = np.asarray(state_stats["q99"], dtype=np.float64)
+        margin = np.deg2rad(float(cfg["safety"].get("state_stats_margin_deg", 5.0)))
+        below = np.where(state < (q01 - margin))[0]
+        above = np.where(state > (q99 + margin))[0]
+        if below.size or above.size:
+            issues.append(
+                {
+                    "kind": "state_outside_training_stats",
+                    "stats_path": state_stats["path"],
+                    "margin_deg": float(cfg["safety"].get("state_stats_margin_deg", 5.0)),
+                    "below_q01": [int(i) for i in below],
+                    "above_q99": [int(i) for i in above],
+                    "q01": q01.tolist(),
+                    "q99": q99.tolist(),
+                }
+            )
+
+    lower_live = _vector(cfg["safety"]["target_limits_deg"]["min"], name="safety.target_limits_deg.min")
+    upper_live = _vector(cfg["safety"]["target_limits_deg"]["max"], name="safety.target_limits_deg.max")
+    if cfg["robot"].get("model_state_units", "rad") == "rad":
+        lower = np.deg2rad(lower_live)
+        upper = np.deg2rad(upper_live)
+    else:
+        lower = lower_live
+        upper = upper_live
+    margin = np.deg2rad(float(cfg["safety"].get("state_limit_margin_deg", 5.0)))
+    below = np.where(state < (lower - margin))[0]
+    above = np.where(state > (upper + margin))[0]
+    if below.size or above.size:
+        issues.append(
+            {
+                "kind": "state_outside_target_limits",
+                "margin_deg": float(cfg["safety"].get("state_limit_margin_deg", 5.0)),
+                "below_min": [int(i) for i in below],
+                "above_max": [int(i) for i in above],
+                "target_min_model": lower.tolist(),
+                "target_max_model": upper.tolist(),
+            }
+        )
+
+    if not issues:
+        return None
+
+    return {
+        "state_model": state.tolist(),
+        "issues": issues,
+    }
+
+
 def _validate_config(root: Path, cfg: dict[str, Any]) -> None:
     _vector(cfg["calibration"]["gain_vector"], name="calibration.gain_vector")
     _vector(cfg["safety"]["max_delta_per_command_deg"], name="safety.max_delta_per_command_deg")
@@ -232,6 +416,76 @@ def _validate_config(root: Path, cfg: dict[str, Any]) -> None:
 def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(row, sort_keys=True) + "\n")
+
+
+def _compat_calibration_dir() -> Path:
+    return _repo_root() / "run_logs" / "openpi_live_so101" / "_compat_calibration"
+
+
+def _old_calibration_path(robot_id: str) -> Path:
+    return _NEW_LEROBOT_CALIBRATION_DIR / f"{robot_id}.json"
+
+
+def _looks_like_new_calibration(payload: dict[str, Any]) -> bool:
+    return "motor_names" in payload and "calib_mode" in payload
+
+
+def _convert_old_calibration(payload: dict[str, Any]) -> dict[str, Any]:
+    motor_names = [name for name in _MOTOR_NAMES if name in payload]
+    if len(motor_names) != len(_MOTOR_NAMES):
+        missing = [name for name in _MOTOR_NAMES if name not in payload]
+        raise ValueError(f"Old calibration file is missing joints: {missing}")
+    calib_mode: list[str] = []
+    drive_mode: list[int] = []
+    homing_offset: list[int] = []
+    start_pos: list[int] = []
+    end_pos: list[int] = []
+
+    for name in motor_names:
+        joint = payload[name]
+        range_min = int(joint["range_min"])
+        range_max = int(joint["range_max"])
+        start_pos.append(range_min)
+        end_pos.append(range_max)
+        drive_mode.append(int(joint.get("drive_mode", 0)))
+
+        if name == "gripper":
+            # Old SOFollower used RANGE_0_100 normalization for gripper.
+            calib_mode.append("LINEAR")
+            homing_offset.append(0)
+        else:
+            # Old SOFollower ignored homing_offset at runtime and instead normalized
+            # body joints around the midpoint of [range_min, range_max]:
+            #   degrees = (raw - mid) * 360 / 4095
+            # New LeRobot DEGREE mode expects:
+            #   degrees = (raw + homing_offset) * 360 / 4096
+            # so choose homing_offset ~= -mid to preserve the old convention.
+            mid = int(round((range_min + range_max) / 2.0))
+            calib_mode.append("DEGREE")
+            homing_offset.append(-mid)
+
+    return {
+        "motor_names": motor_names,
+        "calib_mode": calib_mode,
+        "drive_mode": drive_mode,
+        "homing_offset": homing_offset,
+        "start_pos": start_pos,
+        "end_pos": end_pos,
+    }
+
+
+def _prepare_compat_calibration(robot_id: str) -> Path:
+    source = _old_calibration_path(robot_id)
+    if not source.is_file():
+        raise FileNotFoundError(f"Expected existing SO-101 calibration at {source}")
+
+    payload = _load_json(source)
+    converted = payload if _looks_like_new_calibration(payload) else _convert_old_calibration(payload)
+    out_dir = _compat_calibration_dir()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "so101_follower.json"
+    out_path.write_text(json.dumps(converted, indent=2), encoding="utf-8")
+    return out_dir
 
 
 def main() -> int:
@@ -268,10 +522,13 @@ def main() -> int:
 
     _validate_config(root, cfg)
     policy = None
+    state_stats = _load_state_stats(root, cfg)
     if not args.skip_policy_load:
         print("loading OpenPI policy...")
         policy = _load_policy(root, cfg)
         print("OpenPI policy loaded")
+    if state_stats is not None:
+        print(f"state_stats: {state_stats['path']}")
     if args.check_only:
         return 0
     if policy is None:
@@ -290,22 +547,41 @@ def main() -> int:
     step = 0
     try:
         try:
-            robot.connect(calibrate=bool(control.get("connect_calibrate", True)))
+            _connect_robot(robot, control)
         except ConnectionError as e:
             message = str(e).lower()
-            if "lock" in message or "enable_torque" in message or "status packet" in message:
+            if (
+                ("lock" in message or "enable_torque" in message or "status packet" in message)
+                and hasattr(robot, "bus")
+            ):
                 print(f"WARNING: robot connect hit torque/status issue ({e}). Retrying torque enable...")
                 robot.bus.enable_torque(num_retry=5)
             else:
                 raise
         print(f"Robot connected. dry_run={args.dry_run}. Logs: {session_dir}")
         while True:
-            obs = robot.get_observation()
+            obs = _read_observation(robot)
             policy_obs, state_raw, state_model = _obs_to_policy_input(obs, cfg)
+            state_issue = _state_guard_issue(state_model, cfg, state_stats)
             if control.get("save_latest_observation", True):
                 np.save(session_dir / "latest_front.npy", policy_obs["observation/images/front"])
                 np.save(session_dir / "latest_wrist.npy", policy_obs["observation/images/wrist"])
                 np.save(session_dir / "latest_state_model.npy", state_model)
+            if state_issue is not None:
+                _append_jsonl(
+                    log_path,
+                    {
+                        "step": step,
+                        "dry_run": args.dry_run,
+                        "state_raw": state_raw.tolist(),
+                        "state_model": state_model.tolist(),
+                        "guard": state_issue,
+                    },
+                )
+                raise RuntimeError(
+                    "Observed live state is outside the checkpoint training/safety envelope; "
+                    "aborting before policy inference. See rollout.jsonl guard entry."
+                )
             pred_abs = np.asarray(policy.infer(policy_obs)["actions"], dtype=np.float32)
             if pred_abs.ndim != 2 or pred_abs.shape[1] < 6:
                 raise ValueError(f"Expected policy actions shape (T, >=6), got {pred_abs.shape}")
@@ -315,14 +591,30 @@ def main() -> int:
             execute_steps = max(1, min(int(control["execute_steps_per_inference"]), pred_abs.shape[0]))
             for horizon_idx in range(execute_steps):
                 if horizon_idx > 0:
-                    obs = robot.get_observation()
+                    obs = _read_observation(robot)
                     _, state_raw, state_model = _obs_to_policy_input(obs, cfg)
+                    state_issue = _state_guard_issue(state_model, cfg, state_stats)
+                    if state_issue is not None:
+                        _append_jsonl(
+                            log_path,
+                            {
+                                "step": step,
+                                "horizon_idx": horizon_idx,
+                                "dry_run": args.dry_run,
+                                "state_raw": state_raw.tolist(),
+                                "state_model": state_model.tolist(),
+                                "guard": state_issue,
+                            },
+                        )
+                        raise RuntimeError(
+                            "Observed live state is outside the checkpoint training/safety envelope; "
+                            "aborting before sending command. See rollout.jsonl guard entry."
+                        )
                 target_model, safety_info = _calibrate_and_clip(pred_abs[horizon_idx], state_model, cfg)
                 target_live = _model_to_robot_units(target_model, cfg)
                 if not np.isfinite(target_live).all() and cfg["safety"].get("abort_on_nonfinite", True):
                     raise ValueError("Non-finite clipped target detected")
 
-                command = _action_vector_to_robot_dict(target_live)
                 row = {
                     "step": step,
                     "horizon_idx": horizon_idx,
@@ -331,7 +623,7 @@ def main() -> int:
                     "state_model": state_model.tolist(),
                     "target_model": target_model.tolist(),
                     "target_live": target_live.tolist(),
-                    "command": command,
+                    "command": _action_vector_to_robot_dict(target_live),
                     "safety": safety_info,
                 }
                 _append_jsonl(log_path, row)
@@ -342,7 +634,7 @@ def main() -> int:
                     f"limited={safety_info['delta_limited'] or safety_info['target_limited']}"
                 )
                 if not args.dry_run:
-                    robot.send_action(command)
+                    _send_robot_action(robot, target_live)
                 step += 1
                 if int(control["max_steps"]) > 0 and step >= int(control["max_steps"]):
                     return 0

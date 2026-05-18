@@ -6,10 +6,14 @@ set -euo pipefail
 #   bash models/openpi/run_scripts/live_so101_step9999.sh --check-only
 #   bash models/openpi/run_scripts/live_so101_step9999.sh --dry-run --max-steps 5
 
-REPO="${REPO:-/home/caroline/quantycat-positronic}"
-OPENPI_REPO="${OPENPI_REPO:-/home/caroline/openpi}"
+REPO="${REPO:-/home/caroline/Desktop/quantycat-positronic}"
+OPENPI_REPO="${OPENPI_REPO:-/home/caroline/Desktop/OpenPi}"
 PYTHON="${PYTHON:-${OPENPI_REPO}/.venv/bin/python}"
 CONFIG="${CONFIG:-${REPO}/models/openpi/deployment/pi05_lora_step9999_so101.json}"
+VENDOR_ROOT="${VENDOR_ROOT:-${REPO}/_vendor}"
 
 cd "$REPO"
+if [ -d "$VENDOR_ROOT/scservo_sdk" ]; then
+    export PYTHONPATH="${VENDOR_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+fi
 exec "$PYTHON" models/openpi/deployment/live_so101_openpi.py --deploy-config "$CONFIG" "$@"
