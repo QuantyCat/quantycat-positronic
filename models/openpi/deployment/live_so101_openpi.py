@@ -338,7 +338,14 @@ def _load_policy(root: Path, cfg: dict[str, Any]):
     from openpi.policies import policy_config
     from openpi.training import config as openpi_config
 
+    import dataclasses
+
     train_config = openpi_config.get_config(cfg["model"]["config_name"])
+    right_wrist_source = cfg["model"].get("right_wrist_source", "wrist")
+    if right_wrist_source != "wrist":
+        variant_data = dataclasses.replace(train_config.data, right_wrist_source=right_wrist_source)
+        train_config = dataclasses.replace(train_config, data=variant_data)
+
     checkpoint = _resolve_path(root, cfg["model"]["checkpoint_path"])
     if checkpoint is None or not (checkpoint / "params").is_dir():
         raise FileNotFoundError(f"OpenPI checkpoint params not found: {checkpoint / 'params'}")
@@ -449,6 +456,7 @@ def _validate_config(root: Path, cfg: dict[str, Any]) -> None:
     print(f"openpi_repo: {openpi_repo}")
     print(f"checkpoint: {checkpoint}")
     print(f"config_name: {cfg['model']['config_name']}")
+    print(f"right_wrist_source: {cfg['model'].get('right_wrist_source', 'wrist')}")
     print(f"prompt: {cfg['model']['prompt']}")
     print(f"gain_vector: {cfg['calibration']['gain_vector']}")
     print(f"max_delta_per_command_deg: {cfg['safety']['max_delta_per_command_deg']}")
