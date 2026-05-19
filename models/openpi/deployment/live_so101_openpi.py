@@ -63,6 +63,41 @@ def _as_camera_index(value: Any) -> int | str:
     return text
 
 
+def _image_to_uint8_hwc(image: np.ndarray) -> np.ndarray:
+    arr = np.asarray(image)
+    if arr.ndim == 3 and arr.shape[0] in (1, 3, 4) and arr.shape[-1] not in (1, 3, 4):
+        arr = np.moveaxis(arr, 0, -1)
+    if np.issubdtype(arr.dtype, np.floating):
+        max_value = float(np.nanmax(arr)) if arr.size else 1.0
+        if max_value <= 1.0:
+            arr = arr * 255.0
+        arr = np.nan_to_num(arr, nan=0.0, posinf=255.0, neginf=0.0)
+    arr = np.clip(arr, 0, 255).astype(np.uint8)
+    if arr.ndim == 2:
+        arr = np.repeat(arr[:, :, None], 3, axis=2)
+    if arr.ndim != 3:
+        raise ValueError(f"Expected image with 2 or 3 dimensions, got shape {arr.shape}")
+    if arr.shape[2] == 1:
+        arr = np.repeat(arr, 3, axis=2)
+    if arr.shape[2] > 3:
+        arr = arr[:, :, :3]
+    return arr
+
+
+def _save_latest_observation_png(session_dir: Path, front: np.ndarray, wrist: np.ndarray) -> None:
+    from PIL import Image
+
+    front_img = Image.fromarray(_image_to_uint8_hwc(front), mode="RGB")
+    wrist_img = Image.fromarray(_image_to_uint8_hwc(wrist), mode="RGB")
+    if wrist_img.height != front_img.height:
+        width = max(1, round(wrist_img.width * front_img.height / wrist_img.height))
+        wrist_img = wrist_img.resize((width, front_img.height))
+    combined = Image.new("RGB", (front_img.width + wrist_img.width, front_img.height))
+    combined.paste(front_img, (0, 0))
+    combined.paste(wrist_img, (front_img.width, 0))
+    combined.save(session_dir / "latest_observation.png")
+
+
 def _vector(value: Any, *, name: str, length: int = 6) -> np.ndarray:
     arr = np.asarray(value, dtype=np.float64).reshape(-1)
     if arr.size != length:
@@ -576,6 +611,11 @@ def main() -> int:
                 np.save(session_dir / "latest_front.npy", policy_obs["observation/images/front"])
                 np.save(session_dir / "latest_wrist.npy", policy_obs["observation/images/wrist"])
                 np.save(session_dir / "latest_state_model.npy", state_model)
+                _save_latest_observation_png(
+                    session_dir,
+                    policy_obs["observation/images/front"],
+                    policy_obs["observation/images/wrist"],
+                )
             if state_issue is not None:
                 _append_jsonl(
                     log_path,

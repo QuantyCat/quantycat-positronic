@@ -16,7 +16,7 @@
     "front_camera_index": 2,
     "wrist_camera_index": 0,
     "camera_width": 640,
-    "camera_height": 480,
+    "camera_height": 360,
     "camera_fps": 30,
     "live_state_units": "deg",
     "model_state_units": "rad"
