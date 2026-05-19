@@ -23,8 +23,8 @@
   },
   "control": {
     "max_steps": 20,
-    "execute_steps_per_inference": 1,
-    "control_period_s": 0.10,
+    "execute_steps_per_inference": 10,
+    "control_period_s": 0.033,
     "connect_calibrate": true,
     "save_latest_observation": true,
     "log_dir": "run_logs/openpi_live_so101"
