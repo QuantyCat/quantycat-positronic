@@ -35,10 +35,7 @@
     "source": "eval_output/screwdriver_so101/model_eval/openpi_pi05_h20_lora_step9999_gain_calibration_fine/gain_calibration_summary.md"
   },
   "safety": {
-    "target_limits_deg": {
-      "min": [-70.0, -100.0, -17.0, -18.0, -73.0, 0.0],
-      "max": [67.0, 25.0, 100.0, 87.0, 72.0, 29.0]
-    },
+    "target_limits_deg": null,
     "max_delta_per_command_deg": [4.0, 4.0, 4.0, 4.0, 4.0, 2.0],
     "abort_on_nonfinite": true,
     "abort_on_ood_state": true,

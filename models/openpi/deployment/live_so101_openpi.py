@@ -148,16 +148,19 @@ def _calibrate_and_clip(
     limited_delta = np.clip(gained - state, -max_delta_model, max_delta_model)
     limited = state + limited_delta
 
-    limits = safety["target_limits_deg"]
-    lower_live = _vector(limits["min"], name="safety.target_limits_deg.min")
-    upper_live = _vector(limits["max"], name="safety.target_limits_deg.max")
-    if cfg["robot"].get("model_state_units", "rad") == "rad":
-        lower_model = np.deg2rad(lower_live)
-        upper_model = np.deg2rad(upper_live)
+    limits = safety.get("target_limits_deg")
+    if limits is None:
+        clipped = limited
     else:
-        lower_model = lower_live
-        upper_model = upper_live
-    clipped = np.clip(limited, lower_model, upper_model)
+        lower_live = _vector(limits["min"], name="safety.target_limits_deg.min")
+        upper_live = _vector(limits["max"], name="safety.target_limits_deg.max")
+        if cfg["robot"].get("model_state_units", "rad") == "rad":
+            lower_model = np.deg2rad(lower_live)
+            upper_model = np.deg2rad(upper_live)
+        else:
+            lower_model = lower_live
+            upper_model = upper_live
+        clipped = np.clip(limited, lower_model, upper_model)
 
     info = {
         "pred_abs_model": pred.tolist(),
@@ -365,28 +368,30 @@ def _state_guard_issue(
                 }
             )
 
-    lower_live = _vector(cfg["safety"]["target_limits_deg"]["min"], name="safety.target_limits_deg.min")
-    upper_live = _vector(cfg["safety"]["target_limits_deg"]["max"], name="safety.target_limits_deg.max")
-    if cfg["robot"].get("model_state_units", "rad") == "rad":
-        lower = np.deg2rad(lower_live)
-        upper = np.deg2rad(upper_live)
-    else:
-        lower = lower_live
-        upper = upper_live
-    margin = np.deg2rad(float(cfg["safety"].get("state_limit_margin_deg", 5.0)))
-    below = np.where(state < (lower - margin))[0]
-    above = np.where(state > (upper + margin))[0]
-    if below.size or above.size:
-        issues.append(
-            {
-                "kind": "state_outside_target_limits",
-                "margin_deg": float(cfg["safety"].get("state_limit_margin_deg", 5.0)),
-                "below_min": [int(i) for i in below],
-                "above_max": [int(i) for i in above],
-                "target_min_model": lower.tolist(),
-                "target_max_model": upper.tolist(),
-            }
-        )
+    limits = cfg["safety"].get("target_limits_deg")
+    if limits is not None:
+        lower_live = _vector(limits["min"], name="safety.target_limits_deg.min")
+        upper_live = _vector(limits["max"], name="safety.target_limits_deg.max")
+        if cfg["robot"].get("model_state_units", "rad") == "rad":
+            lower = np.deg2rad(lower_live)
+            upper = np.deg2rad(upper_live)
+        else:
+            lower = lower_live
+            upper = upper_live
+        margin = np.deg2rad(float(cfg["safety"].get("state_limit_margin_deg", 5.0)))
+        below = np.where(state < (lower - margin))[0]
+        above = np.where(state > (upper + margin))[0]
+        if below.size or above.size:
+            issues.append(
+                {
+                    "kind": "state_outside_target_limits",
+                    "margin_deg": float(cfg["safety"].get("state_limit_margin_deg", 5.0)),
+                    "below_min": [int(i) for i in below],
+                    "above_max": [int(i) for i in above],
+                    "target_min_model": lower.tolist(),
+                    "target_max_model": upper.tolist(),
+                }
+            )
 
     if not issues:
         return None
@@ -400,8 +405,9 @@ def _state_guard_issue(
 def _validate_config(root: Path, cfg: dict[str, Any]) -> None:
     _vector(cfg["calibration"]["gain_vector"], name="calibration.gain_vector")
     _vector(cfg["safety"]["max_delta_per_command_deg"], name="safety.max_delta_per_command_deg")
-    _vector(cfg["safety"]["target_limits_deg"]["min"], name="safety.target_limits_deg.min")
-    _vector(cfg["safety"]["target_limits_deg"]["max"], name="safety.target_limits_deg.max")
+    if cfg["safety"].get("target_limits_deg") is not None:
+        _vector(cfg["safety"]["target_limits_deg"]["min"], name="safety.target_limits_deg.min")
+        _vector(cfg["safety"]["target_limits_deg"]["max"], name="safety.target_limits_deg.max")
     openpi_repo = _resolve_path(root, cfg["model"]["openpi_repo"])
     checkpoint = _resolve_path(root, cfg["model"]["checkpoint_path"])
     print(f"config: {cfg['name']}")
@@ -428,55 +434,6 @@ def _old_calibration_path(robot_id: str) -> Path:
 
 def _looks_like_new_calibration(payload: dict[str, Any]) -> bool:
     return "motor_names" in payload and "calib_mode" in payload
-
-
-def _looks_like_per_motor_calibration(payload: dict[str, Any]) -> bool:
-    return all(
-        isinstance(payload.get(name), dict) and "homing_offset" in payload[name]
-        for name in _MOTOR_NAMES
-    )
-
-
-def _convert_per_motor_calibration(payload: dict[str, Any]) -> dict[str, Any]:
-    """Convert LeRobot SO-101 per-motor calibration to the old bus format.
-
-    Recent LeRobot SO-101 calibration files store one dict per motor and use
-    `homing_offset` as the raw motor position corresponding to zero. The old
-    FeetechMotorsBus format expects an offset that is added to the raw position
-    after optional drive inversion. Preserve the zero point instead of replacing
-    it with the midpoint of the allowed range.
-    """
-
-    motor_names = list(_MOTOR_NAMES)
-    calib_mode: list[str] = []
-    drive_mode: list[int] = []
-    homing_offset: list[int] = []
-    start_pos: list[int] = []
-    end_pos: list[int] = []
-
-    for name in motor_names:
-        joint = payload[name]
-        mode = int(joint.get("drive_mode", 0))
-        home = int(joint["homing_offset"])
-        drive_mode.append(mode)
-        start_pos.append(int(joint["range_min"]))
-        end_pos.append(int(joint["range_max"]))
-
-        if name == "gripper":
-            calib_mode.append("LINEAR")
-            homing_offset.append(0)
-        else:
-            calib_mode.append("DEGREE")
-            homing_offset.append(home if mode else -home)
-
-    return {
-        "motor_names": motor_names,
-        "calib_mode": calib_mode,
-        "drive_mode": drive_mode,
-        "homing_offset": homing_offset,
-        "start_pos": start_pos,
-        "end_pos": end_pos,
-    }
 
 
 def _convert_old_calibration(payload: dict[str, Any]) -> dict[str, Any]:
@@ -531,8 +488,6 @@ def _prepare_compat_calibration(robot_id: str) -> Path:
     payload = _load_json(source)
     if _looks_like_new_calibration(payload):
         converted = payload
-    elif _looks_like_per_motor_calibration(payload):
-        converted = _convert_per_motor_calibration(payload)
     else:
         converted = _convert_old_calibration(payload)
     out_dir = _compat_calibration_dir()
