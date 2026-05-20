@@ -14,7 +14,7 @@ Example:
     --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
     --step 120 \
     --checkpoint /home/caroline/old_checkpoints/04142026_epoch3 \
-    --rynnvla-repo /home/caroline/RynnVLA-002/rynnvla-002
+    --rynnvla-repo vendor/rynnvla-002/rynnvla-002
 """
 
 from __future__ import annotations
@@ -35,6 +35,10 @@ _DEFAULT_CONFIG = "models/rynnvla-002/config.yaml"
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
+
+
+def _default_rynnvla_repo() -> str:
+    return str(_repo_root() / "vendor/rynnvla-002/rynnvla-002")
 
 
 def _load_positronic_config(config_path: Path) -> dict[str, Any]:
@@ -197,8 +201,8 @@ def main() -> None:
     parser.add_argument(
         "--rynnvla-repo",
         type=str,
-        default=os.environ.get("RYNNVLA_REPO", ""),
-        help="If set, prepend this directory to sys.path (e.g. ~/RynnVLA-002/rynnvla-002)",
+        default=os.environ.get("RYNNVLA_REPO", _default_rynnvla_repo()),
+        help="If set, prepend this directory to sys.path (e.g. vendor/rynnvla-002/rynnvla-002)",
     )
     parser.add_argument(
         "--save-json",

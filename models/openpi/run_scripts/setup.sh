@@ -4,12 +4,14 @@
 # Usage from /home/caroline/Desktop/quantycat-positronic:
 #   bash models/openpi/run_scripts/setup.sh
 #
-# This script does not patch openpi. It assumes /home/caroline/openpi already
+# This script does not patch openpi. It assumes the vendored OpenPI fork already
 # contains the Quantycat config changes.
 
 set -euo pipefail
 
-OPENPI_REPO="${OPENPI_REPO:-/home/caroline/Desktop/OpenPi}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
 
 if [ ! -d "$OPENPI_REPO" ]; then
     echo "ERROR: openpi repo not found at: $OPENPI_REPO"
@@ -46,5 +48,5 @@ GIT_LFS_SKIP_SMUDGE=1 "${UV_CMD[@]}" pip install -e .
 echo ""
 echo "Setup complete."
 echo "Next step:"
-echo "  cd /home/caroline/Desktop/quantycat-positronic"
+echo "  cd $REPO"
 echo "  bash models/openpi/run_scripts/preprocess.sh"

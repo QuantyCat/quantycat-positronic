@@ -1,7 +1,7 @@
 {
   "name": "openpi_pi05_h20_quantycat_so101_screwdriver",
   "model": {
-    "openpi_repo": "/home/caroline/Desktop/OpenPi",
+    "openpi_repo": "vendor/openpi",
     "config_name": "pi05_quantycat_lora",
     "right_wrist_source": "wrist",
     "checkpoint_path": "/home/caroline/Desktop/fine_tuning/screwdriver_so101/05172026_pi05_h20_lora",

@@ -55,7 +55,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--rynnvla-repo",
         type=str,
-        default=os.environ.get("RYNNVLA_REPO", ""),
+        default=os.environ.get("RYNNVLA_REPO", step_eval._default_rynnvla_repo()),
         help="Optional path to the RynnVLA python root for printed commands.",
     )
     return parser.parse_args()

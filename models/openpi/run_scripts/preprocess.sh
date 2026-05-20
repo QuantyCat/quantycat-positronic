@@ -6,8 +6,10 @@
 
 set -euo pipefail
 
-OPENPI_REPO="${OPENPI_REPO:-/home/caroline/Desktop/OpenPi}"
-NORM_STATS_PATH="/home/caroline/Desktop/quantycat-positronic/my_data/training_pipeline/openpi/norm_stats.json"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
+NORM_STATS_PATH="$REPO/my_data/training_pipeline/openpi/norm_stats.json"
 
 if [ ! -d "$OPENPI_REPO" ]; then
     echo "ERROR: openpi repo not found at: $OPENPI_REPO"

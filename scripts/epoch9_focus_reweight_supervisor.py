@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-REPO = Path("/home/caroline/quantycat-positronic")
+REPO = Path(__file__).resolve().parents[1]
 SESSION = "fresh_h1j3_weighted"
 EPOCH = 9
 OUT_DIR = REPO / "my_data/training_pipeline/fine_tuning/screwdriver_so101_fresh_h1j3_weighted_scratch"
@@ -27,7 +27,7 @@ REPORT_DIR = REPO / f"eval_output/screwdriver_so101/model_eval/fresh_h1j3_weight
 REPORT = REPORT_DIR / "focused_high_motion_joint_sign.json"
 LOG = REPO / "run_logs" / f"focus_reweight_supervisor_e{EPOCH}.log"
 PYTHON = "/home/caroline/miniconda3/envs/rynnvla002/bin/python"
-RYNNVLA_REPO = "/home/caroline/RynnVLA-002/rynnvla-002"
+RYNNVLA_REPO = str(REPO / "vendor/rynnvla-002/rynnvla-002")
 
 THRESHOLDS = {
     "raw_sign_agreement": 0.94,

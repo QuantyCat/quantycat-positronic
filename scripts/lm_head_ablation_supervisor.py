@@ -13,7 +13,7 @@ from pathlib import Path
 import yaml
 
 
-REPO = Path("/home/caroline/quantycat-positronic")
+REPO = Path(__file__).resolve().parents[1]
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
 RUN_DIR = REPO / "my_data/training_pipeline/fine_tuning/screwdriver_so101_h1j01234_scaled_scratch"
 PARENT_EPOCH = 3

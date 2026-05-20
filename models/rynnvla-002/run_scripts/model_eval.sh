@@ -54,9 +54,10 @@ CKPT_ARG=""
 [ -n "$CHECKPOINT" ] && CKPT_ARG="--checkpoint $CHECKPOINT"
 
 RYNNVLA_ARG=""
+REPO_ROOT="$(cd "$MODEL_ROOT/../.." && pwd)"
+[ -n "$RYNNVLA_REPO" ] || RYNNVLA_REPO="$REPO_ROOT/vendor/rynnvla-002/rynnvla-002"
 [ -n "$RYNNVLA_REPO" ] && RYNNVLA_ARG="--rynnvla-repo $RYNNVLA_REPO"
 
-REPO_ROOT="$(cd "$MODEL_ROOT/../.." && pwd)"
 cd "$REPO_ROOT"
 
 for EPISODE in "${EPISODES[@]}"; do

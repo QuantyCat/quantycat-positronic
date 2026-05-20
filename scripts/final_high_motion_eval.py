@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-REPO = Path("/home/caroline/quantycat-positronic")
+REPO = Path(__file__).resolve().parents[1]
 OUT_DIR = REPO / "my_data/training_pipeline/fine_tuning/screwdriver_so101_fresh_h1j3_weighted_scratch"
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
 EVAL_SCRIPT = REPO / "models/rynnvla-002/eval/model_eval/focused_sign_eval.py"
@@ -21,7 +21,7 @@ CASE_SOURCE = (
 MODEL_EVAL_DIR = REPO / "eval_output/screwdriver_so101/model_eval"
 LOG = REPO / "run_logs/final_high_motion_eval.log"
 PYTHON = "/home/caroline/miniconda3/envs/rynnvla002/bin/python"
-RYNNVLA_REPO = "/home/caroline/RynnVLA-002/rynnvla-002"
+RYNNVLA_REPO = str(REPO / "vendor/rynnvla-002/rynnvla-002")
 
 CHECKPOINTS = [
     ("fresh_h1j3_weighted_epoch16_iter5999", OUT_DIR / "epoch16-iter5999"),

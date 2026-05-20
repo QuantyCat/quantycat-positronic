@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "models/rynnvla-002/eval/data_analysis"))
 
-REPO = Path("/home/caroline/quantycat-positronic")
+REPO = Path(__file__).resolve().parents[1]
 CHECKPOINT = (
     REPO
     / "my_data/training_pipeline/fine_tuning/"
@@ -34,7 +34,7 @@ OUTPUT_DIR = (
 WINDOWS_JSON = OUTPUT_DIR / "selected_windows.json"
 LOG = REPO / "run_logs/j0j4_epoch8_baseline_eval.log"
 PYTHON = "/home/caroline/miniconda3/envs/rynnvla002/bin/python"
-RYNNVLA_REPO = "/home/caroline/RynnVLA-002/rynnvla-002"
+RYNNVLA_REPO = str(REPO / "vendor/rynnvla-002/rynnvla-002")
 
 
 def log(message: str) -> None:

@@ -10,25 +10,30 @@ Run from repo root:
 
 import os
 import sys
+from pathlib import Path
+
 import yaml
 
-CONFIG_PATH = "models/rynnvla-002/config.yaml"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+CONFIG_PATH = REPO_ROOT / "models/rynnvla-002/config.yaml"
 
-with open(CONFIG_PATH) as f:
+with CONFIG_PATH.open() as f:
     config = yaml.safe_load(f)
 
-work_dir    = os.path.abspath(config["work_dir"])
-his         = config["his"]
-chunk_size  = config["chunk_size"]
-resolution  = config["resolution"]
+work_dir = Path(config["work_dir"])
+if not work_dir.is_absolute():
+    work_dir = (REPO_ROOT / work_dir).resolve()
+his = config["his"]
+chunk_size = config["chunk_size"]
+resolution = config["resolution"]
 run_validation = bool(config.get("run_validation", False))
-home        = os.path.expanduser("~")
-tokens_root  = os.path.join(work_dir, "tokens", "vla_data")
+home = os.path.expanduser("~")
+tokens_root = work_dir / "tokens" / "vla_data"
 
 # Filename derived from config values — must match what finetune.py constructs
-rynnvla_repo     = os.path.join(home, "RynnVLA-002", "rynnvla-002")
-config_dir        = os.path.join(rynnvla_repo, "configs", "lerobot")
-base_name         = f"his_{his}_third_view_wrist_w_state_{chunk_size}_{resolution}_pretokenize"
+rynnvla_repo = REPO_ROOT / "vendor/rynnvla-002/rynnvla-002"
+config_dir = rynnvla_repo / "configs" / "lerobot"
+base_name = f"his_{his}_third_view_wrist_w_state_{chunk_size}_{resolution}_pretokenize"
 
 split_to_name = {
     "train": f"{base_name}.yaml",
@@ -38,13 +43,13 @@ split_to_name = {
 
 available = {}
 for split_name in split_to_name:
-    record_json = os.path.join(tokens_root, split_name, "record.json")
-    if os.path.exists(record_json):
+    record_json = tokens_root / split_name / "record.json"
+    if record_json.exists():
         available[split_name] = record_json
 
 if "train" not in available:
-    legacy_train = os.path.join(tokens_root, "record.json")
-    if os.path.exists(legacy_train):
+    legacy_train = tokens_root / "record.json"
+    if legacy_train.exists():
         available["train"] = legacy_train
 
 if "train" not in available:
@@ -63,9 +68,9 @@ if "val_ood" not in available and "val_ind" in available:
 for split_name, config_name in split_to_name.items():
     if split_name != "train" and split_name not in available:
         continue
-    portable_path = available[split_name].replace(home, "$HOME")
-    config_path = os.path.join(config_dir, config_name)
-    with open(config_path, "w") as f:
+    portable_path = str(available[split_name]).replace(home, "$HOME")
+    config_path = config_dir / config_name
+    with config_path.open("w") as f:
         f.write(f"META:\n  - path: '{portable_path}'\n")
     print(f"Updated {config_path}")
     print(f"  path: {portable_path}")

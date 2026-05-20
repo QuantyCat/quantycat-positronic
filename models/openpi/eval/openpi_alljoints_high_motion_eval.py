@@ -15,9 +15,9 @@ from typing import Any
 import numpy as np
 
 
-REPO = Path("/home/caroline/quantycat-positronic")
-OPENPI_REPO = Path("/home/caroline/openpi")
-RYNNVLA_REPO = Path("/home/caroline/RynnVLA-002/rynnvla-002")
+REPO = Path(__file__).resolve().parents[3]
+OPENPI_REPO = REPO / "vendor/openpi"
+RYNNVLA_REPO = REPO / "vendor/rynnvla-002/rynnvla-002"
 RYNN_EVAL_DIR = REPO / "models/rynnvla-002/eval/model_eval"
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
 FIND_WINDOWS_SCRIPT = REPO / "models/rynnvla-002/eval/data_analysis/find_high_motion_windows.py"

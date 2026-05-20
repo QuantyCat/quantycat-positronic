@@ -55,7 +55,7 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--positronic-config", default="models/rynnvla-002/config.yaml")
-    parser.add_argument("--rynnvla-repo", default=os.environ.get("RYNNVLA_REPO", "../RynnVLA-002/rynnvla-002"))
+    parser.add_argument("--rynnvla-repo", default=os.environ.get("RYNNVLA_REPO", step_eval._default_rynnvla_repo()))
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--teacher-limit", type=int, default=64)
     parser.add_argument("--paired-limit", type=int, default=16)

@@ -15,6 +15,7 @@ Downloads:
 import os
 import shutil
 import sys
+from pathlib import Path
 
 try:
     from huggingface_hub import snapshot_download
@@ -28,7 +29,7 @@ if not token:
     sys.exit(1)
 
 REPO     = "Alibaba-DAMO-Academy/WorldVLA"
-CKPTS    = os.path.expanduser("~/RynnVLA-002/rynnvla-002/ckpts")
+CKPTS = str((Path(__file__).resolve().parents[3] / "vendor/rynnvla-002/rynnvla-002/ckpts").resolve())
 
 # 1. chameleon/tokenizer → ckpts/chameleon/tokenizer
 print("\n=== 1/3 Downloading chameleon/tokenizer ===")

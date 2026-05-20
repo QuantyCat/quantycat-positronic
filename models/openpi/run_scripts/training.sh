@@ -6,11 +6,13 @@
 
 set -euo pipefail
 
-OPENPI_REPO="${OPENPI_REPO:-/home/caroline/Desktop/OpenPi}"
-CONFIG_NAME="${CONFIG_NAMcaE:-pi05_quantycat_lora}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
+CONFIG_NAME="${CONFIG_NAME:-pi05_quantycat_lora}"
 EXP_NAME="${EXP_NAME:-screwdriver_so101_pi05_h20_lora_v1}"
-NORM_STATS_PATH="/home/caroline/Desktop/quantycat-positronic/my_data/training_pipeline/openpi/norm_stats.json"
-CHECKPOINT_DIR="/home/caroline/Desktop/quantycat-positronic/my_data/training_pipeline/openpi/checkpoints/${CONFIG_NAME}/${EXP_NAME}"
+NORM_STATS_PATH="$REPO/my_data/training_pipeline/openpi/norm_stats.json"
+CHECKPOINT_DIR="$REPO/my_data/training_pipeline/openpi/checkpoints/${CONFIG_NAME}/${EXP_NAME}"
 
 if [ ! -d "$OPENPI_REPO" ]; then
     echo "ERROR: openpi repo not found at: $OPENPI_REPO"

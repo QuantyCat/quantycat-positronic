@@ -6,8 +6,10 @@ set -euo pipefail
 #   bash models/openpi/run_scripts/live_so101_step9999.sh --check-only
 #   bash models/openpi/run_scripts/live_so101_step9999.sh --dry-run --max-steps 5
 
-REPO="${REPO:-/home/caroline/Desktop/quantycat-positronic}"
-OPENPI_REPO="${OPENPI_REPO:-/home/caroline/Desktop/OpenPi}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+REPO="${REPO:-$DEFAULT_REPO}"
+OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
 PYTHON="${PYTHON:-${OPENPI_REPO}/.venv/bin/python}"
 CONFIG="${CONFIG:-${REPO}/models/openpi/deployment/pi05_lora_step9999_so101.json}"
 VENDOR_ROOT="${VENDOR_ROOT:-${REPO}/_vendor}"

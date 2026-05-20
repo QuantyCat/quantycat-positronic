@@ -15,8 +15,8 @@ from typing import Any
 import numpy as np
 
 
-REPO = Path("/home/caroline/quantycat-positronic")
-RYNNVLA_REPO = Path("/home/caroline/RynnVLA-002/rynnvla-002")
+REPO = Path(__file__).resolve().parents[3]
+RYNNVLA_REPO = REPO / "vendor/rynnvla-002/rynnvla-002"
 RYNN_EVAL_DIR = REPO / "models/rynnvla-002/eval/model_eval"
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
 DEFAULT_LABEL_DIR = (

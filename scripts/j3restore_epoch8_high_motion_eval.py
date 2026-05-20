@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-REPO = Path("/home/caroline/quantycat-positronic")
+REPO = Path(__file__).resolve().parents[1]
 CHECKPOINT = (
     REPO
     / "my_data/training_pipeline/fine_tuning/"
@@ -29,7 +29,7 @@ OUTPUT_DIR = (
 )
 LOG = REPO / "run_logs/j3restore_epoch8_high_motion_eval.log"
 PYTHON = "/home/caroline/miniconda3/envs/rynnvla002/bin/python"
-RYNNVLA_REPO = "/home/caroline/RynnVLA-002/rynnvla-002"
+RYNNVLA_REPO = str(REPO / "vendor/rynnvla-002/rynnvla-002")
 
 
 def log(message: str) -> None:

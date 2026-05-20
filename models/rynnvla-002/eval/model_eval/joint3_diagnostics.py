@@ -29,7 +29,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--positronic-config", default="models/rynnvla-002/config.yaml")
-    parser.add_argument("--rynnvla-repo", default=os.environ.get("RYNNVLA_REPO", ""))
+    parser.add_argument("--rynnvla-repo", default=os.environ.get("RYNNVLA_REPO", step_eval._default_rynnvla_repo()))
     parser.add_argument("--gpu", type=int, default=None)
     parser.add_argument("--worst-k", type=int, default=10)
     parser.add_argument("--best-k", type=int, default=5)

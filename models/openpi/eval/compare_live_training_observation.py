@@ -27,8 +27,8 @@ import numpy as np
 import pandas as pd
 
 
-REPO = Path("/home/caroline/quantycat-positronic")
-OPENPI_REPO = Path("/home/caroline/openpi")
+REPO = Path(__file__).resolve().parents[3]
+OPENPI_REPO = REPO / "vendor/openpi"
 DATASET_ROOT = REPO / "my_data/input_data"
 CHECKPOINT = (
     REPO

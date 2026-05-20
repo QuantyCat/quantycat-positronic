@@ -5,7 +5,7 @@ RynnVLA-002 closed-loop inference on SO-101 via LeRobot.
 Requires:
   - This repo's conda env (lerobot, torch, etc.): source models/rynnvla-002/run_scripts/setup.sh
   - QuantyCat fork of RynnVLA-002 on PYTHONPATH or installed, e.g.:
-      export PYTHONPATH="$HOME/RynnVLA-002/rynnvla-002:$PYTHONPATH"
+      export PYTHONPATH="$PWD/vendor/rynnvla-002/rynnvla-002:$PYTHONPATH"
 
 Run from repository root:
 
@@ -49,6 +49,10 @@ _DEFAULT_CONFIG = "models/rynnvla-002/config.yaml"
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def _default_rynnvla_repo() -> str:
+    return str(_repo_root() / "vendor/rynnvla-002/rynnvla-002")
 
 
 def _load_positronic_config(config_path: Path) -> dict[str, Any]:
@@ -190,8 +194,8 @@ def main() -> None:
     parser.add_argument(
         "--rynnvla-repo",
         type=str,
-        default=os.environ.get("RYNNVLA_REPO", ""),
-        help="If set, prepend this directory to sys.path (e.g. ~/RynnVLA-002/rynnvla-002)",
+        default=os.environ.get("RYNNVLA_REPO", _default_rynnvla_repo()),
+        help="If set, prepend this directory to sys.path (e.g. vendor/rynnvla-002/rynnvla-002)",
     )
     parser.add_argument("--prompt", type=str, default=None, help="Language instruction for the policy.")
     parser.add_argument("--robot-port", type=str, default=None, help="Serial port for SO-101 follower.")
@@ -283,7 +287,7 @@ def main() -> None:
         raise SystemExit(
             "Import failed: eval_solver_lerobot_action_head_state.Solver\n"
             "Add the QuantyCat RynnVLA-002 python root to PYTHONPATH, e.g.:\n"
-            "  export PYTHONPATH=\"$HOME/RynnVLA-002/rynnvla-002:$PYTHONPATH\"\n"
+            "  export PYTHONPATH=\"$PWD/vendor/rynnvla-002/rynnvla-002:$PYTHONPATH\"\n"
             "Or pass --rynnvla-repo pointing at that directory.\n"
             f"Original error: {e}"
         ) from e

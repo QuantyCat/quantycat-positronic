@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 
-REPO = Path("/home/caroline/quantycat-positronic")
+REPO = Path(__file__).resolve().parents[1]
 EVAL_SCRIPT = REPO / "scripts/alljoints_high_motion_eval.py"
 PYTHON = "/home/caroline/miniconda3/envs/rynnvla002/bin/python"
 

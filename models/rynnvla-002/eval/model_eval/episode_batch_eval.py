@@ -16,7 +16,7 @@ Example:
   conda run -n rynnvla002 python models/rynnvla-002/inference/eval/episode_batch_eval.py \
     --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
     --checkpoint /home/caroline/old_checkpoints/04152025_epoch4 \
-    --rynnvla-repo /home/caroline/RynnVLA-002/rynnvla-002 \
+    --rynnvla-repo vendor/rynnvla-002/rynnvla-002 \
     --start-step 100 \
     --max-steps 50 \
     --save-json
@@ -51,8 +51,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--rynnvla-repo",
         type=str,
-        default=os.environ.get("RYNNVLA_REPO", ""),
-        help="If set, prepend this directory to sys.path (e.g. ~/RynnVLA-002/rynnvla-002)",
+        default=os.environ.get("RYNNVLA_REPO", step_eval._default_rynnvla_repo()),
+        help="If set, prepend this directory to sys.path (e.g. vendor/rynnvla-002/rynnvla-002)",
     )
     parser.add_argument("--start-step", type=int, default=0, help="First timestep index to evaluate.")
     parser.add_argument("--max-steps", type=int, default=50, help="Maximum number of timesteps to evaluate.")
@@ -135,7 +135,7 @@ def _load_solver(extra_repo: str | None, solver_args: argparse.Namespace):
         raise SystemExit(
             "Import failed: eval_solver_lerobot_action_head_state.Solver\n"
             "Add the QuantyCat RynnVLA-002 python root to PYTHONPATH, e.g.:\n"
-            "  export PYTHONPATH=\"$HOME/RynnVLA-002/rynnvla-002:$PYTHONPATH\"\n"
+            "  export PYTHONPATH=\"$PWD/vendor/rynnvla-002/rynnvla-002:$PYTHONPATH\"\n"
             "Or pass --rynnvla-repo pointing at that directory.\n"
             f"Original error: {e}"
         ) from e
