@@ -32,6 +32,8 @@ def _parse_args() -> argparse.Namespace:
                         help="Seconds to wait after sending command")
     parser.add_argument("--no-cameras", action="store_true",
                         help="Skip cameras (motor-only test)")
+    parser.add_argument("--no-calibrate", action="store_true",
+                        help="Connect without calibrate=True (test if calibration sets speed limit)")
     return parser.parse_args()
 
 
@@ -57,7 +59,7 @@ def main() -> int:
 
     print("Connecting to robot ...")
     robot = _make_robot(args)
-    robot.connect(calibrate=True)
+    robot.connect(calibrate=not args.no_calibrate)
     print("Connected.\n")
 
     # ------------------------------------------------------------------ #
