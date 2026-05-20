@@ -119,6 +119,34 @@ def main() -> int:
     else:
         print("\n[OK] Servo responded correctly.")
 
+    # ------------------------------------------------------------------ #
+    # 4. Read and optionally reset the Moving_Speed register             #
+    # ------------------------------------------------------------------ #
+    try:
+        bus = getattr(robot, "bus", None) or getattr(robot, "motors", None)
+        if bus is not None:
+            speed_val = bus.read("Moving_Speed", joint)
+            print(f"\nMoving_Speed register for {joint}: {speed_val}")
+            print("  (0 = max speed, higher value = slower; default should be 0)")
+            if speed_val != 0:
+                print(f"  [!] Speed is LIMITED. Setting to 0 (max) and re-testing ...")
+                bus.write("Moving_Speed", 0, joint)
+                time.sleep(0.2)
+                obs3 = robot.get_observation()
+                pos_before_reset = float(obs3[joint_key])
+                result2 = robot.send_action({joint_key: pos_before_reset + args.delta})
+                time.sleep(args.wait)
+                obs4 = robot.get_observation()
+                moved2 = float(obs4[joint_key]) - pos_before_reset
+                print(f"  After reset to max speed: moved {moved2:+.3f} deg "
+                      f"(tracking = {100*moved2/args.delta:.0f}%)")
+            else:
+                print("  Speed register is already at max (0). Speed limit is elsewhere.")
+        else:
+            print("\n(Could not access motor bus to read Moving_Speed register)")
+    except Exception as e:
+        print(f"\n(Moving_Speed read failed: {e})")
+
     robot.disconnect()
     return 0
 
