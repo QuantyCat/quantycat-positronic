@@ -61,6 +61,11 @@ logs/
 tmp/
 data/
 
+# Generated OpenPI local diagnostics and live-run captures.
+run_logs/openpi_live_so101/
+run_logs/openpi_pi05_inference_benchmark_*.json
+run_logs/openpi_runtime_diagnosis_*.json
+
 # Robot/ML data files
 *.h5
 *.hdf5
@@ -72,3 +77,6 @@ demonstrations/
 .DS_Store
 
 models/rynnvla-002/.installed_Linux
+
+# Local shim package cache for shared servo SDK import.
+_vendor/scservo_sdk/__pycache__/
