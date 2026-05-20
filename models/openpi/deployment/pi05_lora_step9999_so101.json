@@ -32,12 +32,12 @@
   },
   "calibration": {
     "action_convention": "OpenPI outputs absolute 6-D joint/gripper targets in model units. Apply gain to target-current deltas before sending.",
-    "gain_vector": [1.0, 1.0, 1.0, 1.0, 1.025, 1.0],
+    "gain_vector": [1.0, 1.0, 2.0, 1.0, 1.025, 1.0],
     "source": "eval_output/screwdriver_so101/model_eval/openpi_pi05_h20_lora_step9999_gain_calibration_fine/gain_calibration_summary.md"
   },
   "safety": {
     "target_limits_deg": null,
-    "max_delta_per_command_deg": [4.0, 4.0, 4.0, 4.0, 4.0, 2.0],
+    "max_delta_per_command_deg": [4.0, 4.0, 6.0, 4.0, 4.0, 2.0],
     "abort_on_nonfinite": true,
     "abort_on_ood_state": true,
     "state_stats_margin_deg": 5.0,

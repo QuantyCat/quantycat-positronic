@@ -15,7 +15,7 @@ CONFIG="${CONFIG:-${REPO}/models/openpi/deployment/pi05_lora_step9999_so101.json
 VENDOR_ROOT="${VENDOR_ROOT:-${REPO}/_vendor}"
 
 cd "$REPO"
-if [ -d "$VENDOR_ROOT/scservo_sdk" ]; then
+if [ -d "$VENDOR_ROOT/scservo_sdk" ] && ! "$PYTHON" -c "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('scservo_sdk') else 1)"; then
     export PYTHONPATH="${VENDOR_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 fi
 exec "$PYTHON" models/openpi/deployment/live_so101_openpi.py --deploy-config "$CONFIG" "$@"
