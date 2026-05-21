@@ -669,6 +669,9 @@ def main() -> int:
                         )
                 target_model, safety_info = _calibrate_and_clip(pred_abs[horizon_idx], state_model, cfg)
                 target_live = _model_to_robot_units(target_model, cfg)
+                pred_live_raw = _model_to_robot_units(np.asarray(safety_info["pred_abs_model"], dtype=np.float64), cfg)
+                raw_delta_live = pred_live_raw - state_raw
+                command_delta_live = target_live - state_raw
                 if not np.isfinite(target_live).all() and cfg["safety"].get("abort_on_nonfinite", True):
                     raise ValueError("Non-finite clipped target detected")
 
@@ -680,6 +683,9 @@ def main() -> int:
                     "state_model": state_model.tolist(),
                     "target_model": target_model.tolist(),
                     "target_live": target_live.tolist(),
+                    "pred_live_raw": pred_live_raw.tolist(),
+                    "raw_delta_live": raw_delta_live.tolist(),
+                    "command_delta_live": command_delta_live.tolist(),
                     "command": _action_vector_to_robot_dict(target_live),
                     "safety": safety_info,
                 }
@@ -688,6 +694,8 @@ def main() -> int:
                     f"[step {step}] h={horizon_idx} "
                     f"state={np.round(state_raw, 2).tolist()} "
                     f"target={np.round(target_live, 2).tolist()} "
+                    f"raw_delta={np.round(raw_delta_live, 2).tolist()} "
+                    f"cmd_delta={np.round(command_delta_live, 2).tolist()} "
                     f"limited={safety_info['delta_limited'] or safety_info['target_limited']}"
                 )
                 if not args.dry_run:

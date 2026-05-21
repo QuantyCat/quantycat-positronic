@@ -245,9 +245,20 @@ def _parse_args() -> argparse.Namespace:
                         help="Skip cameras (motor-only test)")
     parser.add_argument("--no-calibrate", action="store_true",
                         help="Connect without calibrate=True (test if calibration sets speed limit)")
-    parser.add_argument("--start-pose", action="store_true",
-                        help="Move all joints to the standard OpenPI start pose and exit")
-    return parser.parse_args()
+    parser.add_argument(
+        "--start-pose",
+        nargs="*",
+        type=float,
+        metavar="DEG",
+        help=(
+            "Move all joints to a target pose and exit. "
+            "Pass 6 values in degrees, or pass no values to use the standard OpenPI start pose."
+        ),
+    )
+    args = parser.parse_args()
+    if args.start_pose is not None and len(args.start_pose) not in (0, 6):
+        parser.error("--start-pose expects either 0 values or exactly 6 values")
+    return args
 
 
 def _make_robot(args: argparse.Namespace):
@@ -332,12 +343,15 @@ def main() -> int:
 
     current_positions = _joint_positions(obs)
 
-    if args.start_pose:
+    if args.start_pose is not None:
+        target_pose = _START_POSE_DEG.copy()
+        if len(args.start_pose) == 6:
+            target_pose = {name: float(args.start_pose[idx]) for idx, name in enumerate(_MOTOR_NAMES)}
         _print_joint_positions("Current joint positions", current_positions)
-        print("\nSending standard start pose:")
+        print("\nSending start pose:")
         for name in _MOTOR_NAMES:
-            print(f"  {name:14s} -> {_START_POSE_DEG[name]:.3f} deg")
-        result = _send_pose_action(robot, obs, _START_POSE_DEG)
+            print(f"  {name:14s} -> {target_pose[name]:.3f} deg")
+        result = _send_pose_action(robot, obs, target_pose)
         print(f"send_action returned: {result}")
         print(f"Waiting {args.wait}s for robot to settle ...")
         time.sleep(args.wait)
