@@ -193,3 +193,7 @@ Long-term fix:
 | Policy capability from active start | Confirmed working — correct reaching trajectory |
 | Canonical deployment start pose | `[4, -85, 92, 67, 6, 0.4]` (deg) |
 | Recommended max_steps for full task | 200 (covers ~150s at 0.75s/step) |
+
+
+Beast Claude: claude --resume 37c8dade-3eb5-439c-8670-40be8a927dfe 
+Lamb Codex: codex resume 019e46d8-e8c2-7e22-9607-8206d1fa5426
