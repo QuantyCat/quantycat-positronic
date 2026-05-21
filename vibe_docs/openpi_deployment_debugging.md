@@ -150,6 +150,19 @@ Evidence:
 
 Keep the `--start-pose` pre-move step in the deployment procedure. Document the canonical start angles in the run script or config.
 
+Short-term workaround:
+
+- add a scripted pre-position or kickstart before inference
+- use the validated active pose `[4, -85, 92, 67, 6, 0.4]`
+- or use a smaller deterministic pre-lift that moves the arm into the active-motion regime before handing control to OpenPI
+
+Validated commands:
+
+```bash
+python models/openpi/deployment/test_robot_send_action.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
+bash models/openpi/run_scripts/live_so101_step9999.sh --max-steps 20
+```
+
 ### Option B: Add a kickstart to the deployment config
 
 Add a `warmup_commands_deg` field to `pi05_lora_step9999_so101.json` that the live script executes before starting policy inference — e.g., a gradual 10° shoulder_lift raise over 3 steps. This automates the bypass without requiring manual pre-positioning.
@@ -161,6 +174,11 @@ When recording new episodes, have the demonstrator start the leader arm motion i
 ### Option D: Trim existing episodes (fastest retraining path)
 
 The existing 50 episodes can be trimmed at frame 165 before re-running `build_dataset` + `train`. This removes the hold phase from training data without re-recording. The resulting policy should self-start from the rest position.
+
+Long-term fix:
+
+- retrain with demos that do not include the long frozen prefix at the start
+- or trim the first ~165 frames from every episode before training so the policy learns from motion onset instead of countdown hold time
 
 ---
 

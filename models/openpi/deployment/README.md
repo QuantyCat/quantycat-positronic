@@ -87,6 +87,36 @@ Run a short live test:
   --max-steps 10
 ```
 
+## Confirmed Self-Start Failure And Workaround
+
+Confirmed on lamb:
+
+- From the default rest pose, OpenPI predicts near-hold actions and does not
+  reliably self-initiate.
+- From an active in-trajectory pose, the same checkpoint produces strong
+  multi-joint motion and the rollout progresses.
+
+Short-term workaround:
+
+- add a scripted pre-position or kickstart before inference
+- use the validated active pose `[4, -85, 92, 67, 6, 0.4]`
+- or use a smaller deterministic pre-lift that moves the arm into the
+  active-motion regime before handing control to OpenPI
+
+Validated commands:
+
+```bash
+cd /home/caroline/Desktop/quantycat-positronic
+python models/openpi/deployment/test_robot_send_action.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
+bash models/openpi/run_scripts/live_so101_step9999.sh --max-steps 20
+```
+
+Long-term fix:
+
+- retrain with demos that do not include the long frozen prefix at the start
+- or trim the first ~165 frames from every episode before training so the
+  policy learns from motion onset instead of countdown hold time
+
 ## Action Convention
 
 OpenPI policy inference returns absolute 6-D targets in model units. The live
