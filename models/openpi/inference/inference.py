@@ -468,7 +468,7 @@ def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
 
 
 def _compat_calibration_dir() -> Path:
-    return _repo_root() / "run_logs" / "openpi_live_so101" / "_compat_calibration"
+    return _repo_root() / "run_logs" / "openpi" / "_compat_calibration"
 
 
 def _old_calibration_path(robot_id: str) -> Path:
@@ -587,7 +587,7 @@ def main() -> int:
         raise ValueError("--skip-policy-load is only valid with --check-only")
 
     control = cfg["control"]
-    log_dir = _resolve_path(root, control.get("log_dir", "run_logs/openpi_live_so101"))
+    log_dir = _resolve_path(root, control.get("log_dir", "run_logs/openpi"))
     if log_dir is None:
         raise ValueError("control.log_dir cannot be empty")
     session_dir = log_dir / _stamp()

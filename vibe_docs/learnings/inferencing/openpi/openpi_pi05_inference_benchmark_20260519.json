@@ -1,0 +1,93 @@
+{
+  "deploy_config": "/home/caroline/Desktop/quantycat-positronic/models/openpi/deployment/pi05_lora_step9999_so101.json",
+  "openpi_repo": "/home/caroline/Desktop/OpenPi",
+  "checkpoint": "/home/caroline/Desktop/fine_tuning/screwdriver_so101/05172026_pi05_h20_lora",
+  "prompt": "Put the screwdriver into the cup",
+  "observation_source": "/home/caroline/Desktop/quantycat-positronic/run_logs/openpi_live_so101/20260519T161437Z",
+  "warmup_runs": 2,
+  "timed_runs": 8,
+  "device": {
+    "jax_default_backend": "cpu",
+    "jax_devices": [
+      "TFRT_CPU_0"
+    ]
+  },
+  "results": [
+    {
+      "sample_steps": 1,
+      "load_ms": 5442.46683298843,
+      "first_infer_ms": 5982.1636760025285,
+      "warm_runs": 8,
+      "steady_mean_ms": 5414.812679748138,
+      "steady_min_ms": 5391.739152983064,
+      "steady_p50_ms": 5410.973049001768,
+      "steady_p90_ms": 5431.318806592026,
+      "steady_p95_ms": 5435.349585789663,
+      "steady_max_ms": 5439.380364987301,
+      "steady_hz_mean": 0.18467859539076678,
+      "actions_shape": [
+        20,
+        6
+      ],
+      "actions_per_infer": 20,
+      "actions_per_second_mean": 3.6935719078153353
+    },
+    {
+      "sample_steps": 5,
+      "load_ms": 3462.525627022842,
+      "first_infer_ms": 6490.988957986701,
+      "warm_runs": 8,
+      "steady_mean_ms": 6461.156681238208,
+      "steady_min_ms": 6140.811810008017,
+      "steady_p50_ms": 6484.999185980996,
+      "steady_p90_ms": 6554.060164481052,
+      "steady_p95_ms": 6594.667012231366,
+      "steady_max_ms": 6635.27385998168,
+      "steady_hz_mean": 0.1547710494165514,
+      "actions_shape": [
+        20,
+        6
+      ],
+      "actions_per_infer": 20,
+      "actions_per_second_mean": 3.0954209883310284
+    },
+    {
+      "sample_steps": 10,
+      "load_ms": 3561.4852399739902,
+      "first_infer_ms": 7923.558531008894,
+      "warm_runs": 8,
+      "steady_mean_ms": 7192.551747994003,
+      "steady_min_ms": 7159.45039599319,
+      "steady_p50_ms": 7193.249587988248,
+      "steady_p90_ms": 7215.837079996709,
+      "steady_p95_ms": 7226.505713490769,
+      "steady_max_ms": 7237.17434698483,
+      "steady_hz_mean": 0.1390327153751656,
+      "actions_shape": [
+        20,
+        6
+      ],
+      "actions_per_infer": 20,
+      "actions_per_second_mean": 2.780654307503312
+    },
+    {
+      "sample_steps": 20,
+      "load_ms": 3579.364449979039,
+      "first_infer_ms": 9078.345857997192,
+      "warm_runs": 8,
+      "steady_mean_ms": 8585.811986005865,
+      "steady_min_ms": 8511.551614006748,
+      "steady_p50_ms": 8585.957625997253,
+      "steady_p90_ms": 8637.6881342032,
+      "steady_p95_ms": 8649.638679105556,
+      "steady_max_ms": 8661.589224007912,
+      "steady_hz_mean": 0.11647122038427046,
+      "actions_shape": [
+        20,
+        6
+      ],
+      "actions_per_infer": 20,
+      "actions_per_second_mean": 2.3294244076854094
+    }
+  ]
+}

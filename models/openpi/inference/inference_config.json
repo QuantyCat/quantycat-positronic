@@ -28,7 +28,7 @@
     "control_period_s": 0.033,
     "connect_calibrate": true,
     "save_latest_observation": true,
-    "log_dir": "run_logs/openpi_live_so101"
+    "log_dir": "run_logs/openpi"
   },
   "calibration": {
     "action_convention": "OpenPI outputs absolute 6-D joint/gripper targets in model units. Apply gain to target-current deltas before sending.",

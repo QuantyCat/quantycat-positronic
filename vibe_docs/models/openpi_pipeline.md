@@ -340,8 +340,8 @@ converts back to live robot units (degrees), and sends the command dictionary.
 Each rollout writes:
 
 ```text
-run_logs/openpi_live_so101/<timestamp>/deployment_config.json
-run_logs/openpi_live_so101/<timestamp>/rollout.jsonl
+run_logs/openpi/<timestamp>/deployment_config.json
+run_logs/openpi/<timestamp>/rollout.jsonl
 ```
 
 ---

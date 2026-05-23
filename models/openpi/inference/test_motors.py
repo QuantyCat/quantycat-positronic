@@ -60,7 +60,7 @@ def _load_json(path: Path) -> dict:
 
 
 def _compat_calibration_dir() -> Path:
-    return _repo_root() / "run_logs" / "openpi_live_so101" / "_compat_calibration"
+    return _repo_root() / "run_logs" / "openpi" / "_compat_calibration"
 
 
 def _old_calibration_path(robot_id: str) -> Path:

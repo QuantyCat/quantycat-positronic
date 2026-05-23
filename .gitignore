@@ -62,7 +62,7 @@ tmp/
 data/
 
 # Generated OpenPI local diagnostics and live-run captures.
-run_logs/openpi_live_so101/
+run_logs/openpi/
 run_logs/openpi_pi05_inference_benchmark_*.json
 run_logs/openpi_runtime_diagnosis_*.json
 
