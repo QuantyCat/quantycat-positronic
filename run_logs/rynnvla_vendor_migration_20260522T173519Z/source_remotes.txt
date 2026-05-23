@@ -1,0 +1,2 @@
+origin	https://github.com/QuantyCat/RynnVLA-002.git (fetch)
+origin	https://github.com/QuantyCat/RynnVLA-002.git (push)

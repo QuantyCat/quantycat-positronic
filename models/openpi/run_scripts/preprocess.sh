@@ -28,8 +28,8 @@ fi
 
 cd "$OPENPI_REPO"
 
-echo "Computing norm stats for pi05_quantycat"
-"${UV_CMD[@]}" run scripts/compute_norm_stats.py --config-name pi05_quantycat
+echo "Computing norm stats for pi05_quantycat_lora"
+"${UV_CMD[@]}" run scripts/compute_norm_stats.py --config-name pi05_quantycat_lora
 
 if [ ! -f "$NORM_STATS_PATH" ]; then
     echo "ERROR: expected norm stats not found at:"

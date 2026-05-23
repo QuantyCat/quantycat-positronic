@@ -197,3 +197,102 @@ Long-term fix:
 
 Beast Claude: claude --resume 37c8dade-3eb5-439c-8670-40be8a927dfe 
 Lamb Codex: codex resume 019e46d8-e8c2-7e22-9607-8206d1fa5426
+
+---
+
+## Deep Training Data Audit (2026-05-23)
+
+After confirming the checkpoint works from the active start pose, a full audit of all 50 training episodes was run to identify other data quality issues before retraining.
+
+### Script: `analyze_training_episodes.py`
+
+Comprehensive per-episode analysis covering: hold duration, gripper timing and range, end-effector position at grasp and episode end, action smoothness/jitter, state-action tracking lag, and wrist roll variability.
+
+```bash
+cd /home/caroline/quantycat-positronic
+/home/caroline/quantycat-positronic/vendor/openpi/.venv/bin/python \
+  models/openpi/eval/analyze_training_episodes.py
+```
+
+Output saved to `eval_output/screwdriver_so101/data_analysis/episode_deep_audit/report.json`.
+
+### Key findings
+
+**Episode 45 is a failed demonstration.**
+The gripper opens to its full range (~28°) mid-reach at frame ~200 — consistent with a drop and re-grasp. The end-effector trajectory is radically different from all other 49 episodes: the arm sweeps to `[0.241, -0.426]` (far outside the cluster) before attempting to recover. Including it gives the policy contradictory supervision for the same visual scene.
+
+**Wrist roll has enormous trajectory variance.**
+During the hold phase, `wrist_roll` is essentially static (std = 0.37°). During the active phase, it ranges across a mean of **84.7°** per episode (max 120.7°), with trajectory std of ~24° — even though every episode *ends* at ≈ −38.5°. The policy has to learn a highly variable wrist_roll arc from visual input, which the visual stream doesn't encode. This is a significant source of multi-modal supervision noise.
+
+**All demonstrations start with the gripper already closed.**
+The gripper is near 0 rad (closed) from frame 0 in all 50 episodes. The demonstrator starts already holding the screwdriver. The training data covers **transport + place only** — there is no pick-up motion in the dataset. A policy retrained from this data cannot grasp from a surface.
+
+**Episode 12 has a transient glitch at frames 46–53.**
+The leader arm briefly commands shoulder_lift to −97° and snaps back to −100° over 7 frames. Not worth removing, but the actual motion onset is at frame ~200, consistent with other episodes. The first-motion detection reported 46 for this episode, which is a false alarm.
+
+**Episode 28 descends unusually deep (z = 0.048 m).**
+Most episodes reach z ≈ 0.08–0.10 m at lowest. Inspect the video before deciding whether to keep.
+
+**End-effector endpoint is highly consistent.**
+All episodes finish within ≈5.5 mm (x), 3.8 mm (y), 7.5 mm (z) of the mean endpoint. Task completion position is reliable across all good episodes.
+
+### Audit summary table
+
+| Issue | Severity | Action |
+|-------|----------|--------|
+| Episode 45: failed demo (drop + re-grasp) | High | Remove |
+| Wrist roll variance (mean 84.7° range) | High | Freeze, down-weight, or re-record |
+| Countdown hold (163–197 frames) | High | Trim first 165 frames (already known) |
+| Episode 28: unusually deep trajectory | Medium | Inspect video |
+| Episode 12: 7-frame leader glitch | Low | Ignore or smooth |
+| Episode length outliers (ep2, ep16, ep47) | Low | Accept |
+
+---
+
+## Clean Dataset: `clean_input_data` (2026-05-23)
+
+### What changed
+
+- First **165 frames trimmed** from all 49 kept episodes (removes the countdown hold)
+- **Episode 45 removed** (failed demonstration)
+- Episodes re-indexed contiguously: ep46→ep45, ep47→ep46, ep48→ep47, ep49→ep48
+- All parquet files regenerated with corrected `frame_index`, `timestamp`, `episode_index`, and global `index`
+- Videos trimmed with ffmpeg (frame-exact selection `n ≥ 165`, re-encoded as H.264)
+- All meta files regenerated (`info.json`, `episodes.jsonl`, `episodes_stats.jsonl`, `tasks.jsonl`)
+
+### Numbers
+
+| | Original | Clean |
+|-|----------|-------|
+| Episodes | 50 | 49 |
+| Total frames | 37,266 | 28,476 |
+| Frames removed | — | 8,790 (23.6%) |
+| Hold frames removed | — | ~8,085 |
+
+### Script: `build_clean_dataset.py`
+
+```bash
+cd /home/caroline/quantycat-positronic
+
+# Dry run — shows episode mapping, no writes
+python scripts/build_clean_dataset.py --dry-run
+
+# Full run
+python scripts/build_clean_dataset.py
+```
+
+Output: `my_data/clean_input_data/`
+
+To point a training run at the clean data, update the dataset path in your training config from `my_data/input_data` to `my_data/clean_input_data`.
+
+### What this fixes for the retrained policy
+
+- Removes the "rest position → hold still" supervision (23% of training data)
+- Removes the contradictory trajectory from episode 45
+- A policy retrained on this data should self-initiate from the rest position without needing the manual pre-position step
+
+### What it does NOT fix
+
+- Wrist roll trajectory variance is unchanged — still 84.7° mean range
+- The dataset still contains only transport+place demonstrations, not pick-up from surface
+- Episode 28's unusual depth is preserved (inspect video to decide)

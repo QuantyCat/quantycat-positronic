@@ -4,7 +4,7 @@ work_dir: my_data/training_pipeline
 training_output: eval_output
 task_label: screwdriver
 robot: so101
-training_run_name: screwdriver_so101_h1j01234_alljoints_lmheadoff_unscaled_signroute_scratch
+training_run_name: screwdriver_so101_h1j01234_alljoints_trim_active_calib_ablation_scratch
 
 # Must be consistent across preprocessing, training, and inference
 chunk_size: 5
@@ -15,20 +15,22 @@ his: 1
 # Train/validation split
 run_validation: true
 val_ratio: 0.10
-train_conversation_override: /home/caroline/quantycat-positronic/my_data/training_pipeline/conversations/libero_screwdriver_his_1_train_h1j01234_alljoints_img_state_abs_ck_1_256.json
-data_config_train_override: /home/caroline/RynnVLA-002/rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_5_256_pretokenize_h1j01234_alljoints.yaml
+train_conversation_override: /home/caroline/quantycat-positronic/my_data/training_pipeline/conversations/libero_screwdriver_his_1_train_h1j01234_alljoints_trim_active_img_state_abs_ck_1_256.json
+data_config_train_override: /home/caroline/RynnVLA-002/rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_5_256_pretokenize_h1j01234_alljoints_trim_active.yaml
+data_config_val_ind_override: /home/caroline/RynnVLA-002/rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_5_256_pretokenize_val_ind_trim_active.yaml
+data_config_val_ood_override: /home/caroline/RynnVLA-002/rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_5_256_pretokenize_val_ind_trim_active.yaml
 
 # Training
 batch_size: 4
 accum_iter: 4
 num_workers: 6
-epochs: 17
+epochs: 4
 lr: 0.00005
 min_lr: 0.000005
 clip_grad: 24.0
 train_z_loss_weight: 1e-3
-loss_ct_weights: 5
-action_sign_loss_weight: 2.0
+loss_ct_weights: 2
+action_sign_loss_weight: 0.0
 action_sign_eps: 0.01
 action_sign_margin: 0.08
 action_wrong_sign_loss_multiplier: 4.0
@@ -36,23 +38,23 @@ action_wrong_sign_joint_weights: [2, 1, 1, 1, 2, 0]
 action_sign_joint_weights: [8, 6, 6, 8, 6, 0]
 action_sign_horizon_weights: [6.0, 1.5, 1.0, 0.5, 0.25]
 action_sign_center: raw_zero
-action_quiet_loss_weight: 2.0
+action_quiet_loss_weight: 0.0
 action_quiet_eps: 0.01
 action_quiet_pred_eps: 0.01
 action_quiet_joint_weights: [0, 1, 1, 0, 1, 0]
 action_quiet_horizon_weights: [1, 1, 1, 1, 1]
-action_motion_loss_weight: 1.5
+action_motion_loss_weight: 1.0
 action_motion_eps: 0.08
 action_motion_joint_weights: [6, 3, 3, 8, 4, 0]
 action_motion_horizon_weights: [8.0, 1.5, 1.0, 0.5, 0.25]
-action_magnitude_loss_weight: 2.0
+action_magnitude_loss_weight: 0.0
 action_magnitude_eps: 0.08
 action_magnitude_joint_weights: [3, 1, 1, 2, 2, 0]
 action_magnitude_horizon_weights: [1.0, 0.75, 0.5, 0.25, 0.1]
 action_norm_joint_scales:
 fresh_start: true
 resume_from_checkpoint:
-ckpt_max_keep: 3
+ckpt_max_keep: 20
 save_interval: 2000
 
 # LoRA — trainable params: lora_weight_ + action_head
@@ -60,7 +62,7 @@ lora_r: 16
 lora_alpha: 32
 train_lm_head: false
 action_head_detach_hidden_states: false
-action_head_loss_routing: sign_to_backbone
+action_head_loss_routing: default
 
 # Inference
 checkpoint: /home/caroline/quantycat-positronic/my_data/training_pipeline/fine_tuning/testing_checkpoints/h1j123_j3restore_epoch8_robot_test_candidate

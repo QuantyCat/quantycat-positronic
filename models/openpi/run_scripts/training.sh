@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
 CONFIG_NAME="${CONFIG_NAME:-pi05_quantycat_lora}"
-EXP_NAME="${EXP_NAME:-screwdriver_so101_pi05_h20_lora_v1}"
+EXP_NAME="${EXP_NAME:-screwdriver_so101_pi05_lora_20260523}"
 NORM_STATS_PATH="$REPO/my_data/training_pipeline/openpi/norm_stats.json"
 CHECKPOINT_DIR="$REPO/my_data/training_pipeline/openpi/checkpoints/${CONFIG_NAME}/${EXP_NAME}"
 

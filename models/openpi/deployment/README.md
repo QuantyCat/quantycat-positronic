@@ -69,53 +69,37 @@ would send, but does not call `robot.send_action()`.
   --max-steps 5
 ```
 
-## First Live Motion
+## Current Config Defaults
 
-The default config is intentionally cautious:
+- `max_steps`: `0` (runs until Ctrl+C)
+- `execute_steps_per_inference`: `20` (execute full action horizon before re-inferring)
+- `control_period_s`: `0.033` (30 Hz, matching training fps)
+- max command delta: `4 deg` on arm joints, `6 deg` elbow, `2 deg` gripper
+- deployment gain vector: `[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]` (all 1.0 — recalibrate after first run)
 
-- `max_steps`: `20`
-- `execute_steps_per_inference`: `1`
-- `control_period_s`: `0.10`
-- max command delta: `4 deg` on arm joints, `2 deg` on gripper
-- deployment gain vector: `[1.000, 1.000, 1.000, 1.000, 1.025, 1.000]`
-
-Run a short live test:
+Run a short live test with an explicit step cap:
 
 ```bash
 /home/caroline/openpi/.venv/bin/python \
   models/openpi/deployment/live_so101_openpi.py \
-  --max-steps 10
+  --max-steps 60
 ```
 
-## Confirmed Self-Start Failure And Workaround
+## Self-Start Workaround
 
-Confirmed on lamb:
-
-- From the default rest pose, OpenPI predicts near-hold actions and does not
-  reliably self-initiate.
-- From an active in-trajectory pose, the same checkpoint produces strong
-  multi-joint motion and the rollout progresses.
-
-Short-term workaround:
-
-- add a scripted pre-position or kickstart before inference
-- use the validated active pose `[4, -85, 92, 67, 6, 0.4]`
-- or use a smaller deterministic pre-lift that moves the arm into the
-  active-motion regime before handing control to OpenPI
-
-Validated commands:
+From the default rest pose the model may predict near-hold actions. Pre-position
+the arm to an active in-trajectory pose before handing control to the policy:
 
 ```bash
-cd /home/caroline/Desktop/quantycat-positronic
+cd /home/caroline/quantycat-positronic
 python models/openpi/deployment/test_robot_send_action.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
-bash models/openpi/run_scripts/live_so101_step9999.sh --max-steps 20
+bash models/openpi/run_scripts/live_so101_step9999.sh
 ```
 
-Long-term fix:
-
-- retrain with demos that do not include the long frozen prefix at the start
-- or trim the first ~165 frames from every episode before training so the
-  policy learns from motion onset instead of countdown hold time
+This was a known issue with the previous checkpoint trained on unclean data
+(countdown hold included). The v2 checkpoint trained on `clean_input_data3`
+(hold trimmed, pauses removed, actions smoothed) should self-start more
+reliably.
 
 ## Action Convention
 

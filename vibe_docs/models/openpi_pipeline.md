@@ -1,4 +1,4 @@
-Robot demos → OpenPI π0.5 fine-tune → trained checkpoint → inference on SO-101.
+Robot demos → preprocess → OpenPI π0.5 LoRA fine-tune → trained checkpoint → inference on SO-101.
 
 This pipeline fine-tunes Physical Intelligence `openpi` on the local Quantycat
 SO-101 screwdriver dataset. Unlike the RynnVLA pipeline, the input LeRobot
@@ -10,31 +10,47 @@ folders and no pretokenization step.
 ## Full Pipeline
 
 ```
-my_data/input_data/                         (LeRobot v2.1 format — never modified)
+my_data/input_data/                         (LeRobot v2.1 format — raw, never modified)
     data/chunk-000/episode_*.parquet
     videos/chunk-000/observation.images.front/*.mp4
     videos/chunk-000/observation.images.wrist/*.mp4
     meta/*.json*
+        ↓  pipeline.sh (models/preprocessing_data/)
+my_data/clean_data/                         (trimmed, pauses removed, actions smoothed)
         ↓  setup.sh
-/home/caroline/openpi/.venv                 (uv-managed openpi environment)
+vendor/openpi/.venv                         (uv-managed openpi environment)
         ↓  preprocess.sh
 my_data/training_pipeline/openpi/norm_stats.json
         ↓  training.sh
-my_data/training_pipeline/openpi/checkpoints/pi05_quantycat/screwdriver_so101_pi05_h20_v1/
-        ↓  policy server / inference client
+my_data/training_pipeline/openpi/checkpoints/pi05_quantycat_lora/screwdriver_so101_pi05_lora_20260523/
+        ↓  live_so101_step9999.sh
 SO-101 robot
 ```
 
 ---
 
-## Key Commands To Run
+## Key Commands
 
-From the Quantycat repo root:
+From the repo root:
 
 ```bash
 cd /home/caroline/quantycat-positronic
+
+# 0. Preprocess raw data.
+bash models/preprocessing_data/pipeline.sh \
+    --src my_data/input_data \
+    --dst my_data/clean_data \
+    --trim-frames 165 \
+    --remove-episodes "45" \
+    --sigma 1.5
+
+# 1. Install/sync openpi environment (once per machine).
 bash models/openpi/run_scripts/setup.sh
+
+# 2. Compute normalization stats.
 bash models/openpi/run_scripts/preprocess.sh
+
+# 3. Train.
 bash models/openpi/run_scripts/training.sh
 ```
 
@@ -50,18 +66,23 @@ bash models/openpi/run_scripts/training.sh
 
 ## Dataset
 
-Input dataset:
+Raw input (never modified):
 
 ```text
 /home/caroline/quantycat-positronic/my_data/input_data
+```
+
+Preprocessed training input:
+
+```text
+/home/caroline/quantycat-positronic/my_data/clean_data
 ```
 
 Schema:
 
 - Robot: SO-101 follower arm
 - Task: `Put the screwdriver into the cup`
-- Episodes: 50
-- Frames: about 37k
+- Episodes: 49 (episode 45 removed — failed grasp)
 - FPS: 30
 - Cameras:
   - `observation.images.front`
@@ -82,17 +103,50 @@ gripper.pos
 
 ---
 
+## Preprocessing Pipeline
+
+Produces `clean_data` from raw `input_data`. Runs three steps in order:
+
+1. **Trim**: removes 165-frame countdown hold from every episode start; drops episode 45.
+2. **Remove pauses**: removes runs of ≥15 consecutive near-zero-motion frames (L2 arm delta < 0.01 rad/frame).
+3. **Smooth actions**: Gaussian filter (σ=1.5) on joints 0–4; gripper untouched.
+
+```bash
+bash models/preprocessing_data/pipeline.sh \
+    --src my_data/input_data \
+    --dst my_data/clean_data \
+    --trim-frames 165 \
+    --remove-episodes "45" \
+    --sigma 1.5
+
+# Preview without writing:
+bash models/preprocessing_data/pipeline.sh \
+    --src my_data/input_data \
+    --dst my_data/clean_data \
+    --trim-frames 165 \
+    --remove-episodes "45" \
+    --dry-run
+```
+
+See `models/preprocessing_data/README.md` for per-script documentation and threshold tuning.
+
+**Video timestamp fix**: `remove_pauses.py` uses `setpts=N/{FPS}/TB` + `-vsync cfr` to produce uniform sequential PTS after dropping frames. Earlier versions using `setpts=PTS-STARTPTS` + `-vsync 0` preserved original PTS, creating gaps that caused LeRobot's timestamp validator to fail during norm stats computation.
+
+---
+
 ## What Was Added To OpenPI
 
-Live OpenPI checkout:
+The patched OpenPI checkout is at:
 
 ```text
-/home/caroline/openpi
+/home/caroline/quantycat-positronic/vendor/openpi
 ```
+
+(symlinked from `/home/caroline/openpi`)
 
 Changed files:
 
-- `/home/caroline/openpi/src/openpi/policies/quantycat_policy.py`
+- `src/openpi/policies/quantycat_policy.py`
   - New SO-101 policy transform.
   - Maps `observation/images/front` to `base_0_rgb`.
   - Maps `observation/images/wrist` to `left_wrist_0_rgb`.
@@ -100,33 +154,28 @@ Changed files:
   - Sets all three image masks to `True`.
   - Maps 6-D `observation/state` into `state`.
   - Maps 6-D `action` into `actions`.
-  - Does not pad state/actions early; OpenPI pads later after normalization.
 
-- `/home/caroline/openpi/src/openpi/training/config.py`
-  - Added `import openpi.policies.quantycat_policy as quantycat_policy`.
-  - Added `LeRobotQuantycatDataConfig`.
-  - Registered `TrainConfig(name="pi05_quantycat", ...)`.
-  - Points `repo_id` to the local LeRobot dataset.
-  - Uses `make_bool_mask(5, -1)`.
-    - Joints 0-4 are converted to delta targets.
-    - Gripper dim 5 stays absolute.
+- `src/openpi/training/config.py`
+  - Added `LeRobotQuantycatDataConfig` and `LeRobotQuantycatLoraDataConfig`.
+  - Registered `TrainConfig(name="pi05_quantycat_lora", ...)` — active LoRA config.
+  - Points `repo_id` to the local preprocessed dataset (`my_data/clean_data`).
+  - Uses `make_bool_mask(5, -1)`: joints 0–4 converted to delta targets, gripper dim 5 stays absolute.
   - Uses `pi0_config.Pi0Config(pi05=True, action_horizon=20)`.
   - Uses base checkpoint `gs://openpi-assets/checkpoints/pi05_base/params`.
 
-- `/home/caroline/openpi/scripts/compute_norm_stats.py`
-  - Patched output path logic so absolute local `repo_id` does not cause norm
-    stats to be written into `my_data/input_data`.
-  - For this config, stats now save to `my_data/training_pipeline/openpi/norm_stats.json`.
+- `scripts/compute_norm_stats.py`
+  - Patched output path logic so absolute local `repo_id` writes stats to:
+    `my_data/training_pipeline/openpi/norm_stats.json` (not into `input_data`).
 
-- `/home/caroline/openpi/src/openpi/training/data_loader.py`
-  - Added a compatibility alias for LeRobot v2.1 parquet metadata:
-    `_type: "List"` → HuggingFace `datasets.Sequence`.
-  - This fixes the `ValueError: Feature type 'List' not found` failure with
-    OpenPI's pinned `datasets==3.6.0`.
+- `src/openpi/training/data_loader.py`
+  - Compatibility alias: `_type: "List"` → `datasets.Sequence` for LeRobot v2.1 parquet metadata.
+  - Fixes `ValueError: Feature type 'List' not found` with OpenPI's pinned `datasets==3.6.0`.
 
-The live source of truth for training is `/home/caroline/openpi`. The
-Quantycat wrapper under `/home/caroline/quantycat-positronic/models/openpi/`
-contains run scripts and notes, not a second runnable training config.
+A readable copy of the policy transform is kept at:
+
+```text
+models/openpi/training_config/quantycat_policy.py
+```
 
 ---
 
@@ -140,7 +189,7 @@ bash models/openpi/run_scripts/setup.sh
 
 What it does:
 
-- Verifies `/home/caroline/openpi` exists.
+- Verifies `vendor/openpi` exists.
 - Verifies `uv` is installed.
 - Runs `GIT_LFS_SKIP_SMUDGE=1 uv sync`.
 - Runs `GIT_LFS_SKIP_SMUDGE=1 uv pip install -e .`.
@@ -152,12 +201,6 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source "$HOME/.local/bin/env"
 ```
 
-or:
-
-```bash
-python -m pip install uv
-```
-
 ### 2. Preprocess / Norm Stats
 
 ```bash
@@ -167,8 +210,8 @@ bash models/openpi/run_scripts/preprocess.sh
 This runs:
 
 ```bash
-cd /home/caroline/openpi
-uv run scripts/compute_norm_stats.py --config-name pi05_quantycat
+cd vendor/openpi
+uv run scripts/compute_norm_stats.py --config-name pi05_quantycat_lora
 ```
 
 Expected output:
@@ -176,14 +219,6 @@ Expected output:
 ```text
 /home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/norm_stats.json
 ```
-
-Do not write generated files into:
-
-```text
-/home/caroline/quantycat-positronic/my_data/input_data
-```
-
-That directory is the raw LeRobot dataset and should remain unchanged.
 
 ### 3. Training
 
@@ -194,28 +229,24 @@ bash models/openpi/run_scripts/training.sh
 This runs:
 
 ```bash
-cd /home/caroline/openpi
+cd vendor/openpi
 XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 \
-  uv run scripts/train.py pi05_quantycat \
-  --exp-name=screwdriver_so101_pi05_h20_v1 \
+  uv run scripts/train.py pi05_quantycat_lora \
+  --exp-name=screwdriver_so101_pi05_lora_20260523 \
   --overwrite
 ```
 
 Expected checkpoints:
 
 ```text
-/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/checkpoints/pi05_quantycat/screwdriver_so101_pi05_h20_v1
+/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/checkpoints/pi05_quantycat_lora/screwdriver_so101_pi05_lora_20260523/
 ```
 
 ---
 
 ## Current Training Config
 
-Config name:
-
-```text
-pi05_quantycat
-```
+Config name: `pi05_quantycat_lora`
 
 Important settings:
 
@@ -225,7 +256,6 @@ weight_loader=weight_loaders.CheckpointWeightLoader(
     "gs://openpi-assets/checkpoints/pi05_base/params"
 )
 num_train_steps=5_000
-ema_decay=None
 batch_size=4
 num_workers=2
 save_interval=1000
@@ -235,39 +265,107 @@ wandb_enabled=False
 
 Notes:
 
-- `batch_size=4` is the current lower-memory retry setting. The original first
-  run used `8`.
-- On a 32GB RTX 5090, full π0.5 fine-tuning may still OOM during train-state
-  initialization even at batch size 4.
-- `ema_decay=None` disables OpenPI's extra smoothed parameter copy. This keeps
-  the run closer to full fine-tuning than switching to LoRA, while reducing
-  train-state memory.
+- LoRA fine-tune (`pi05_quantycat_lora`) rather than full fine-tune. Reduces memory and training time.
+- `batch_size=4` for the RTX 5090 32GB. The full fine-tune config (`pi05_quantycat`) OOMed at batch size 8.
 - `XLA_PYTHON_CLIENT_MEM_FRACTION=0.9` is set by `training.sh`.
+- Checkpoints saved every 1000 steps; only the most recent kept-period checkpoint is retained.
+
+---
+
+## Live Deployment
+
+### Config File
+
+```text
+models/openpi/deployment/pi05_lora_step9999_so101.json
+```
+
+Key defaults (as of 2026-05-23):
+
+| Parameter | Value | Notes |
+|---|---|---|
+| `config_name` | `pi05_quantycat_lora` | matches training config |
+| `prompt` | `Put the screwdriver into the cup` | |
+| `sample_steps` | `10` | diffusion steps at inference |
+| `max_steps` | `0` | infinite loop (Ctrl+C to stop) |
+| `execute_steps_per_inference` | `20` | action chunk size before re-inferring |
+| `control_period_s` | `0.033` | 1/30 fps — matches training fps |
+| `gain_vector` | `[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]` | recalibrate after first run |
+| `max_delta_per_command_deg` | `[4, 4, 6, 4, 4, 2]` | per-joint safety clip |
+
+### Check / Dry-Run / Live
+
+```bash
+# Fast config check (no model load).
+bash models/openpi/run_scripts/live_so101_step9999.sh --check-only --skip-policy-load
+
+# Full policy-load check.
+bash models/openpi/run_scripts/live_so101_step9999.sh --check-only
+
+# Dry-run: connects to robot, runs policy, applies gain/clips, but does NOT send actions.
+bash models/openpi/run_scripts/live_so101_step9999.sh --dry-run --max-steps 5
+
+# Live run with step cap.
+bash models/openpi/run_scripts/live_so101_step9999.sh --max-steps 60
+
+# Infinite live run.
+bash models/openpi/run_scripts/live_so101_step9999.sh
+```
+
+### Self-Start Workaround
+
+From the default rest pose the model may predict near-hold actions. Pre-position
+the arm to an in-trajectory pose before handing control:
+
+```bash
+python models/openpi/deployment/test_robot_send_action.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
+bash models/openpi/run_scripts/live_so101_step9999.sh
+```
+
+The v2 checkpoint (trained on `clean_data` with hold trimmed, pauses removed,
+actions smoothed) should self-start more reliably than the v1 checkpoint.
+
+### Action Convention
+
+```text
+delta = predicted_target - current_state
+calibrated_target = current_state + delta * gain_vector
+```
+
+After gain, the runner clips per-command deltas and final absolute targets,
+converts back to live robot units (degrees), and sends the command dictionary.
+
+### Logs
+
+Each rollout writes:
+
+```text
+run_logs/openpi_live_so101/<timestamp>/deployment_config.json
+run_logs/openpi_live_so101/<timestamp>/rollout.jsonl
+```
 
 ---
 
 ## Inference Input Format
 
-Training uses `LeRobotQuantycatDataConfig.repack_transforms`. Inference does
-not automatically run that training repack transform. The inference caller must
-send observations with the keys expected by `QuantycatInputs`:
+Inference callers must send observations with the keys expected by `QuantycatInputs`:
 
 ```python
 {
-    "observation/state": state,
-    "observation/images/front": front_image,
-    "observation/images/wrist": wrist_image,
+    "observation/state": state,          # 6-D joint/gripper positions
+    "observation/images/front": front,   # (H, W, 3) uint8
+    "observation/images/wrist": wrist,   # (H, W, 3) uint8
     "prompt": "Put the screwdriver into the cup",
 }
 ```
 
-`QuantycatInputs` then builds the OpenPI model image slots:
+`QuantycatInputs` builds the OpenPI model image slots internally:
 
 ```python
 {
-    "base_0_rgb": front_image,
-    "left_wrist_0_rgb": wrist_image,
-    "right_wrist_0_rgb": wrist_image,
+    "base_0_rgb": front,
+    "left_wrist_0_rgb": wrist,
+    "right_wrist_0_rgb": wrist,   # wrist duplicated — SO-101 has no right wrist camera
 }
 ```
 
@@ -278,25 +376,25 @@ send observations with the keys expected by `QuantycatInputs`:
 OpenPI work root:
 
 ```text
-/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi
+/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/
 ```
 
 Norm stats:
 
 ```text
-/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/norm_stats.json
+my_data/training_pipeline/openpi/norm_stats.json
 ```
 
 Checkpoints:
 
 ```text
-/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/checkpoints/pi05_quantycat/<exp-name>
+my_data/training_pipeline/openpi/checkpoints/pi05_quantycat_lora/<exp-name>/
 ```
 
-Default experiment:
+Current experiment:
 
 ```text
-/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/checkpoints/pi05_quantycat/screwdriver_so101_pi05_h20_v1
+my_data/training_pipeline/openpi/checkpoints/pi05_quantycat_lora/screwdriver_so101_pi05_lora_20260523/
 ```
 
 ---
@@ -311,14 +409,8 @@ If norm stats fails with:
 ValueError: Feature type 'List' not found
 ```
 
-the fix is already patched in:
-
-```text
-/home/caroline/openpi/src/openpi/training/data_loader.py
-```
-
-It aliases LeRobot v2.1 parquet metadata `_type: "List"` to
-`datasets.Sequence`.
+the fix is already patched in `vendor/openpi/src/openpi/training/data_loader.py`.
+It aliases LeRobot v2.1 parquet metadata `_type: "List"` to `datasets.Sequence`.
 
 ### Norm Stats Saved Into `input_data`
 
@@ -328,22 +420,20 @@ OpenPI's original `compute_norm_stats.py` used:
 output_path = config.assets_dirs / data_config.repo_id
 ```
 
-With an absolute local `repo_id`, that accidentally resolved to
-`my_data/input_data`. This is patched so `pi05_quantycat` writes to:
+With an absolute local `repo_id`, that accidentally resolved into `my_data/input_data`.
+Patched so `pi05_quantycat_lora` writes to `my_data/training_pipeline/openpi/norm_stats.json`.
+
+### Video/Parquet Timestamp Mismatch After Pause Removal
+
+If preprocess fails with:
 
 ```text
-my_data/training_pipeline/openpi/norm_stats.json
+AssertionError: One or several query timestamps unexpectedly violate the tolerance
 ```
 
-### Local Dataset Path
-
-The config uses a local LeRobot dataset path:
-
-```python
-repo_id="/home/caroline/quantycat-positronic/my_data/input_data"
-```
-
-This has been verified far enough to load parquet files and compute norm stats.
+the fix is in `models/preprocessing_data/remove_pauses.py`. Uses `setpts=N/{FPS}/TB`
++ `-vsync cfr` + `-r {FPS}` to produce uniform sequential PTS. The original
+`setpts=PTS-STARTPTS` + `-vsync 0` preserved gaps where pauses were removed.
 
 ---
 
@@ -351,6 +441,11 @@ This has been verified far enough to load parquet files and compute norm stats.
 
 ```bash
 cd /home/caroline/quantycat-positronic
+
+# 0. Preprocess raw recordings.
+bash models/preprocessing_data/pipeline.sh \
+    --src my_data/input_data --dst my_data/clean_data \
+    --trim-frames 165 --remove-episodes "45" --sigma 1.5
 
 # 1. Install/sync openpi environment.
 bash models/openpi/run_scripts/setup.sh
@@ -360,4 +455,8 @@ bash models/openpi/run_scripts/preprocess.sh
 
 # 3. Train.
 bash models/openpi/run_scripts/training.sh
+
+# 4. Check deployment config, then dry-run.
+bash models/openpi/run_scripts/live_so101_step9999.sh --check-only
+bash models/openpi/run_scripts/live_so101_step9999.sh --dry-run --max-steps 5
 ```
