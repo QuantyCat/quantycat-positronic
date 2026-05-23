@@ -4,7 +4,7 @@
     "openpi_repo": "vendor/openpi",
     "config_name": "pi05_quantycat_lora",
     "right_wrist_source": "wrist",
-    "checkpoint_path": "/home/caroline/quantycat-positronic/models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/05232026_pi05_lora",
+    "checkpoint_path": "/home/caroline/quantycat-positronic/models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/05232026_pi05_lora/4999",
     "prompt": "Put the screwdriver into the cup",
     "sample_steps": 10,
     "pytorch_device": null

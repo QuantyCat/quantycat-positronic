@@ -23,7 +23,7 @@ vendor/openpi/.venv                         (uv-managed openpi environment)
 models/openpi/training_pipeline/norm_stats.json
         ↓  training.sh
 models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/05232026_pi05_lora/
-        ↓  live_so101_step9999.sh
+        ↓  inference.sh
 SO-101 robot
 ```
 
@@ -297,19 +297,19 @@ Key defaults (as of 2026-05-23):
 
 ```bash
 # Fast config check (no model load).
-bash models/openpi/run_scripts/live_so101_step9999.sh --check-only --skip-policy-load
+bash models/openpi/run_scripts/inference.sh --check-only --skip-policy-load
 
 # Full policy-load check.
-bash models/openpi/run_scripts/live_so101_step9999.sh --check-only
+bash models/openpi/run_scripts/inference.sh --check-only
 
 # Dry-run: connects to robot, runs policy, applies gain/clips, but does NOT send actions.
-bash models/openpi/run_scripts/live_so101_step9999.sh --dry-run --max-steps 5
+bash models/openpi/run_scripts/inference.sh --dry-run --max-steps 5
 
 # Live run with step cap.
-bash models/openpi/run_scripts/live_so101_step9999.sh --max-steps 60
+bash models/openpi/run_scripts/inference.sh --max-steps 60
 
 # Infinite live run.
-bash models/openpi/run_scripts/live_so101_step9999.sh
+bash models/openpi/run_scripts/inference.sh
 ```
 
 ### Self-Start Workaround
@@ -319,7 +319,7 @@ the arm to an in-trajectory pose before handing control:
 
 ```bash
 python models/openpi/inference/test_motors.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
-bash models/openpi/run_scripts/live_so101_step9999.sh
+bash models/openpi/run_scripts/inference.sh
 ```
 
 The v2 checkpoint (trained on `clean_data` with hold trimmed, pauses removed,
@@ -457,6 +457,6 @@ bash models/openpi/run_scripts/preprocess.sh
 bash models/openpi/run_scripts/training.sh
 
 # 4. Check deployment config, then dry-run.
-bash models/openpi/run_scripts/live_so101_step9999.sh --check-only
-bash models/openpi/run_scripts/live_so101_step9999.sh --dry-run --max-steps 5
+bash models/openpi/run_scripts/inference.sh --check-only
+bash models/openpi/run_scripts/inference.sh --dry-run --max-steps 5
 ```

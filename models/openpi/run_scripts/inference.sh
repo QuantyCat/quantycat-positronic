@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Run the OpenPI pi0.5 LoRA step-9999 policy on the live SO-101 follower.
 # Pass extra arguments through to inference.py, for example:
-#   bash models/openpi/run_scripts/live_so101_step9999.sh --check-only
-#   bash models/openpi/run_scripts/live_so101_step9999.sh --dry-run --max-steps 5
+#   bash models/openpi/run_scripts/inference.sh --check-only
+#   bash models/openpi/run_scripts/inference.sh --dry-run --max-steps 5
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
