@@ -5,7 +5,7 @@ Connects to the SO-101, reads an observation, prints all observation keys,
 then commands wrist_flex +10 deg, waits, reads again, and reports actual movement.
 
 Run from the quantycat-positronic repo root:
-  python models/openpi/deployment/test_robot_send_action.py
+  python models/openpi/inference/test_motors.py
 
 Options:
   --port        Serial port (default: /dev/ttyACM0)

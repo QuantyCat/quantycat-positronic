@@ -28,7 +28,7 @@ if [ -z "$MODEL_ROOT" ] || [ -z "$PYTHON" ]; then
     exit 1
 fi
 
-TASK_DIR="my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup"
+TASK_DIR="models/rynnvla-002/training_pipeline/training_data/Put_the_screwdriver_into_the_cup"
 CHECKPOINT=""
 TOP_K=5
 

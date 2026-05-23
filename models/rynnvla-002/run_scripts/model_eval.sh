@@ -4,8 +4,8 @@
 # Usage:
 #   source models/rynnvla-002/run_scripts/setup.sh
 #   ./models/rynnvla-002/run_scripts/model_eval.sh \
-#       --episode my_data/training_pipeline/training_data/.../episode_000025 \
-#       --episode my_data/training_pipeline/training_data/.../episode_000000 \
+#       --episode models/rynnvla-002/training_pipeline/training_data/.../episode_000025 \
+#       --episode models/rynnvla-002/training_pipeline/training_data/.../episode_000000 \
 #       [--checkpoint /path/to/checkpoint] \
 #       [--start-step 100] [--max-steps 50]
 #

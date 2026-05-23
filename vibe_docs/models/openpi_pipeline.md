@@ -16,13 +16,13 @@ my_data/input_data/                         (LeRobot v2.1 format — raw, never 
     videos/chunk-000/observation.images.wrist/*.mp4
     meta/*.json*
         ↓  pipeline.sh (models/preprocessing_data/)
-my_data/clean_data/                         (trimmed, pauses removed, actions smoothed)
+my_data/clean_input_data/                         (trimmed, pauses removed, actions smoothed)
         ↓  setup.sh
 vendor/openpi/.venv                         (uv-managed openpi environment)
         ↓  preprocess.sh
-my_data/training_pipeline/openpi/norm_stats.json
+models/openpi/training_pipeline/norm_stats.json
         ↓  training.sh
-my_data/training_pipeline/openpi/checkpoints/pi05_quantycat_lora/screwdriver_so101_pi05_lora_20260523/
+models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/05232026_pi05_lora/
         ↓  live_so101_step9999.sh
 SO-101 robot
 ```
@@ -39,7 +39,7 @@ cd /home/caroline/quantycat-positronic
 # 0. Preprocess raw data.
 bash models/preprocessing_data/pipeline.sh \
     --src my_data/input_data \
-    --dst my_data/clean_data \
+    --dst my_data/clean_input_data \
     --trim-frames 165 \
     --remove-episodes "45" \
     --sigma 1.5
@@ -75,7 +75,7 @@ Raw input (never modified):
 Preprocessed training input:
 
 ```text
-/home/caroline/quantycat-positronic/my_data/clean_data
+/home/caroline/quantycat-positronic/my_data/clean_input_data
 ```
 
 Schema:
@@ -114,7 +114,7 @@ Produces `clean_data` from raw `input_data`. Runs three steps in order:
 ```bash
 bash models/preprocessing_data/pipeline.sh \
     --src my_data/input_data \
-    --dst my_data/clean_data \
+    --dst my_data/clean_input_data \
     --trim-frames 165 \
     --remove-episodes "45" \
     --sigma 1.5
@@ -122,7 +122,7 @@ bash models/preprocessing_data/pipeline.sh \
 # Preview without writing:
 bash models/preprocessing_data/pipeline.sh \
     --src my_data/input_data \
-    --dst my_data/clean_data \
+    --dst my_data/clean_input_data \
     --trim-frames 165 \
     --remove-episodes "45" \
     --dry-run
@@ -158,14 +158,14 @@ Changed files:
 - `src/openpi/training/config.py`
   - Added `LeRobotQuantycatDataConfig` and `LeRobotQuantycatLoraDataConfig`.
   - Registered `TrainConfig(name="pi05_quantycat_lora", ...)` — active LoRA config.
-  - Points `repo_id` to the local preprocessed dataset (`my_data/clean_data`).
+  - Points `repo_id` to the local preprocessed dataset (`my_data/clean_input_data`).
   - Uses `make_bool_mask(5, -1)`: joints 0–4 converted to delta targets, gripper dim 5 stays absolute.
   - Uses `pi0_config.Pi0Config(pi05=True, action_horizon=20)`.
   - Uses base checkpoint `gs://openpi-assets/checkpoints/pi05_base/params`.
 
 - `scripts/compute_norm_stats.py`
   - Patched output path logic so absolute local `repo_id` writes stats to:
-    `my_data/training_pipeline/openpi/norm_stats.json` (not into `input_data`).
+    `models/openpi/training_pipeline/norm_stats.json` (not into `input_data`).
 
 - `src/openpi/training/data_loader.py`
   - Compatibility alias: `_type: "List"` → `datasets.Sequence` for LeRobot v2.1 parquet metadata.
@@ -217,7 +217,7 @@ uv run scripts/compute_norm_stats.py --config-name pi05_quantycat_lora
 Expected output:
 
 ```text
-/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/norm_stats.json
+/home/caroline/quantycat-positronic/models/openpi/training_pipeline/norm_stats.json
 ```
 
 ### 3. Training
@@ -232,14 +232,14 @@ This runs:
 cd vendor/openpi
 XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 \
   uv run scripts/train.py pi05_quantycat_lora \
-  --exp-name=screwdriver_so101_pi05_lora_20260523 \
+  --exp-name=05232026_pi05_lora \
   --overwrite
 ```
 
 Expected checkpoints:
 
 ```text
-/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/checkpoints/pi05_quantycat_lora/screwdriver_so101_pi05_lora_20260523/
+/home/caroline/quantycat-positronic/models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/05232026_pi05_lora/
 ```
 
 ---
@@ -277,7 +277,7 @@ Notes:
 ### Config File
 
 ```text
-models/openpi/deployment/pi05_lora_step9999_so101.json
+models/openpi/inference/inference_config.json
 ```
 
 Key defaults (as of 2026-05-23):
@@ -318,7 +318,7 @@ From the default rest pose the model may predict near-hold actions. Pre-position
 the arm to an in-trajectory pose before handing control:
 
 ```bash
-python models/openpi/deployment/test_robot_send_action.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
+python models/openpi/inference/test_motors.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
 bash models/openpi/run_scripts/live_so101_step9999.sh
 ```
 
@@ -376,25 +376,25 @@ Inference callers must send observations with the keys expected by `QuantycatInp
 OpenPI work root:
 
 ```text
-/home/caroline/quantycat-positronic/my_data/training_pipeline/openpi/
+/home/caroline/quantycat-positronic/models/openpi/training_pipeline/
 ```
 
 Norm stats:
 
 ```text
-my_data/training_pipeline/openpi/norm_stats.json
+models/openpi/training_pipeline/norm_stats.json
 ```
 
 Checkpoints:
 
 ```text
-my_data/training_pipeline/openpi/checkpoints/pi05_quantycat_lora/<exp-name>/
+models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/<exp-name>/
 ```
 
 Current experiment:
 
 ```text
-my_data/training_pipeline/openpi/checkpoints/pi05_quantycat_lora/screwdriver_so101_pi05_lora_20260523/
+models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/05232026_pi05_lora/
 ```
 
 ---
@@ -421,7 +421,7 @@ output_path = config.assets_dirs / data_config.repo_id
 ```
 
 With an absolute local `repo_id`, that accidentally resolved into `my_data/input_data`.
-Patched so `pi05_quantycat_lora` writes to `my_data/training_pipeline/openpi/norm_stats.json`.
+Patched so `pi05_quantycat_lora` writes to `models/openpi/training_pipeline/norm_stats.json`.
 
 ### Video/Parquet Timestamp Mismatch After Pause Removal
 
@@ -444,7 +444,7 @@ cd /home/caroline/quantycat-positronic
 
 # 0. Preprocess raw recordings.
 bash models/preprocessing_data/pipeline.sh \
-    --src my_data/input_data --dst my_data/clean_data \
+    --src my_data/input_data --dst my_data/clean_input_data \
     --trim-frames 165 --remove-episodes "45" --sigma 1.5
 
 # 1. Install/sync openpi environment.

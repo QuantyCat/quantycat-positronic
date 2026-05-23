@@ -107,7 +107,7 @@ The start pose used successfully in deployment: `[4, -85, 92, 67, 6, 0.4]`
 1. Move the arm to the pre-reach start position:
    ```bash
    /home/caroline/openpi/.venv/bin/python \
-     models/openpi/deployment/test_robot_send_action.py \
+     models/openpi/inference/test_motors.py \
      --start-pose 4 -85 92 67 6 0.4
    ```
 
@@ -159,7 +159,7 @@ Short-term workaround:
 Validated commands:
 
 ```bash
-python models/openpi/deployment/test_robot_send_action.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
+python models/openpi/inference/test_motors.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
 bash models/openpi/run_scripts/live_so101_step9999.sh --max-steps 20
 ```
 

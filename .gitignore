@@ -1,8 +1,8 @@
 my_data/*
-!my_data/training_pipeline/
-my_data/training_pipeline/*
-!my_data/training_pipeline/min_max_action.txt
-!my_data/training_pipeline/min_max_state.txt
+
+# Training pipeline outputs (checkpoints, norm stats, etc.)
+models/openpi/training_pipeline/
+models/rynnvla-002/training_pipeline/
 
 # Zip files
 *.zip

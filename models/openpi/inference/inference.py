@@ -23,7 +23,7 @@ _MOTOR_NAMES: tuple[str, ...] = (
     "wrist_roll",
     "gripper",
 )
-_DEFAULT_CONFIG = "models/openpi/deployment/pi05_lora_step9999_so101.json"
+_DEFAULT_CONFIG = "models/openpi/inference/inference_config.json"
 _NEW_LEROBOT_CALIBRATION_DIR = Path("/home/caroline/.cache/huggingface/lerobot/calibration/robots/so_follower")
 
 

@@ -135,7 +135,7 @@ Use `pipeline.sh` to run all three steps in one command and produce a single cle
 ```bash
 bash preprocessing_data/pipeline.sh \
     --src my_data/input_data \
-    --dst my_data/clean_data \
+    --dst my_data/clean_input_data \
     --trim-frames 165 \
     --remove-episodes "45" \
     --sigma 1.5
@@ -143,7 +143,7 @@ bash preprocessing_data/pipeline.sh \
 # Preview all three steps without writing:
 bash preprocessing_data/pipeline.sh \
     --src my_data/input_data \
-    --dst my_data/clean_data \
+    --dst my_data/clean_input_data \
     --trim-frames 165 \
     --remove-episodes "45" \
     --dry-run
@@ -173,7 +173,7 @@ python preprocessing_data/remove_pauses.py \
     --src my_data/trimmed --dst my_data/trimmed_nopause
 
 python preprocessing_data/smooth_actions.py \
-    --src my_data/trimmed_nopause --dst my_data/clean_data
+    --src my_data/trimmed_nopause --dst my_data/clean_input_data
 ```
 
 Always run `--dry-run` first to sanity-check thresholds before writing.

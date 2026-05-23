@@ -11,7 +11,7 @@ RynnVLA-002 has two components:
 ```
 my_data/input_data/                     (LeRobot v2.1 format — never modified)
     ↓  Step 1 — step1_convert_lerobot.py
-my_data/training_pipeline/training_data/
+models/rynnvla-002/training_pipeline/training_data/
     TASK_NAME/episode_000000/
         front_image/image_0.png ...
         wrist_image/image_0.png ...
@@ -19,21 +19,21 @@ my_data/training_pipeline/training_data/
         abs_action/action_0/            saved targets: relative joint deltas, gripper absolute
             0.npy ... 19.npy            20 sub-actions per chunk
     ↓  Step 2 — step2_generate_conversations.py
-my_data/training_pipeline/conversations/
+models/rynnvla-002/training_pipeline/conversations/
     libero_<task_label>_his_<his>_train_img_state_abs_ck_1_<resolution>.json
     ↓  Step 3 — step3_verify.py
     ↓  Step 4 — step4_calculate_min_max.py
-my_data/training_pipeline/min_max_action.txt
-my_data/training_pipeline/min_max_state.txt
+models/rynnvla-002/training_pipeline/min_max_action.txt
+models/rynnvla-002/training_pipeline/min_max_state.txt
     ↓  Step 5 — step5_pretokenize.py
-my_data/training_pipeline/tokens/vla_data/
+models/rynnvla-002/training_pipeline/tokens/vla_data/
     files/*.pkl
     ↓  Step 6 — step6_merge_records.py
-my_data/training_pipeline/tokens/vla_data/record.json
+models/rynnvla-002/training_pipeline/tokens/vla_data/record.json
     ↓  Step 7 — step7_update_train_config.py
 ~/RynnVLA-002/rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_20_256_pretokenize.yaml
     ↓  Fine-tune — finetune.py
-my_data/training_pipeline/fine_tuning/<task_label>_<robot>/
+models/rynnvla-002/training_pipeline/fine_tuning/<task_label>_<robot>/
     ↓  Inference on SO-101
 ```
 
@@ -207,7 +207,7 @@ Output: `<training_output>/<task_label>_<robot>/resources.csv`
 
 ```bash
 tmux new -s upload / tmux attach -t upload
-aws s3 cp quantycat-positronic/my_data/training_pipeline/fine_tuning/screwdriver_so101/<epoch> s3://quantycat-positronic/screwdriver_so101/<date_epoch> --recursive
+aws s3 cp quantycat-positronic/models/rynnvla-002/training_pipeline/fine_tuning/screwdriver_so101/<epoch> s3://quantycat-positronic/screwdriver_so101/<date_epoch> --recursive
 ```
 
 Verify:
@@ -252,8 +252,8 @@ python3 models/rynnvla-002/inference/inference.py
 source models/rynnvla-002/run_scripts/setup.sh
 bash models/rynnvla-002/run_scripts/data_analysis.sh
 bash models/rynnvla-002/run_scripts/model_eval.sh \
-  --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
-  --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000000
+  --episode models/rynnvla-002/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
+  --episode models/rynnvla-002/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000000
 ```
 
 Outputs go to `eval_output/screwdriver_so101/data_analysis/` and `eval_output/screwdriver_so101/model_eval/`.
