@@ -15,13 +15,13 @@ from typing import Any
 import numpy as np
 
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[4]
 OPENPI_REPO = REPO / "vendor/openpi"
 RYNNVLA_REPO = REPO / "vendor/rynnvla-002/rynnvla-002"
 RYNN_EVAL_DIR = REPO / "models/rynnvla-002/eval/model_eval"
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
 FIND_WINDOWS_SCRIPT = REPO / "models/rynnvla-002/eval/data_analysis/find_high_motion_windows.py"
-TASK_DIR = REPO / "my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup"
+TASK_DIR = REPO / "models/rynnvla-002/training_pipeline/training_data/Put_the_screwdriver_into_the_cup"
 RYNN_PYTHON = "/home/caroline/miniconda3/envs/rynnvla002/bin/python"
 DEFAULT_ROOT = REPO / "eval_output/screwdriver_so101/model_eval"
 DEFAULT_CHECKPOINT = (
@@ -132,14 +132,23 @@ def _load_policy(args: argparse.Namespace):
     os.chdir(OPENPI_REPO)
 
     from openpi.policies import policy_config
+    from openpi.shared import normalize as openpi_normalize
     from openpi.training import config as openpi_config
 
     train_config = openpi_config.get_config(args.config_name)
+    data_config = train_config.data.create(train_config.assets_dirs, train_config.model)
+    norm_stats = None
+    expected_norm_stats = args.checkpoint / "assets" / str(data_config.asset_id) / "norm_stats.json"
+    fallback_norm_stats = args.checkpoint / "assets" / "openpi" / "norm_stats.json"
+    if not expected_norm_stats.is_file() and fallback_norm_stats.is_file():
+        _log(f"using fallback checkpoint norm stats: {fallback_norm_stats}")
+        norm_stats = openpi_normalize.load(fallback_norm_stats.parent)
     return policy_config.create_trained_policy(
         train_config,
         args.checkpoint,
         sample_kwargs={"num_steps": args.sample_steps},
         default_prompt=PROMPT,
+        norm_stats=norm_stats,
     )
 
 

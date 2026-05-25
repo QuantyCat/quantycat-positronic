@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[4]
 RYNNVLA_REPO = REPO / "vendor/rynnvla-002/rynnvla-002"
 RYNN_EVAL_DIR = REPO / "models/rynnvla-002/eval/model_eval"
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
@@ -37,9 +37,16 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label-dir", type=Path, default=DEFAULT_LABEL_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--j2-gains", default="1.00,1.10,1.20,1.30")
-    parser.add_argument("--j4-gains", default="1.00,1.10,1.20,1.30")
+    parser.add_argument("--j2-gains", default="1.00,1.10,1.20,1.30,1.40,1.50,1.60")
+    parser.add_argument("--j3-gains", default="1.00,1.10,1.20,1.30,1.40,1.50")
+    parser.add_argument("--j4-gains", default="1.00,1.10,1.20,1.30,1.40")
     parser.add_argument("--sign-eps", type=float, default=0.01)
+    parser.add_argument(
+        "--action-bounds-json",
+        type=Path,
+        default=None,
+        help="Optional JSON with {'min': [...], 'max': [...]} bounds for normalized metrics.",
+    )
     parser.add_argument(
         "--conservative-score-tolerance",
         type=float,
@@ -86,9 +93,18 @@ def _joint_focus(summary: dict[str, Any]) -> dict[str, dict[str, Any]]:
 def _load_trace(label_dir: Path, joint: int) -> tuple[np.ndarray, np.ndarray]:
     path = label_dir / f"broad_j{joint}_high_motion_top50" / "focused_high_motion_traces.npz"
     if not path.is_file():
+        matches = sorted(label_dir.glob(f"broad_j{joint}_high_motion_top*/focused_high_motion_traces.npz"))
+        if matches:
+            path = matches[0]
+    if not path.is_file():
         raise FileNotFoundError(path)
     data = np.load(path)
     return np.asarray(data["pred"], dtype=np.float32), np.asarray(data["gt"], dtype=np.float32)
+
+
+def _load_action_bounds(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return np.asarray(payload["min"], dtype=np.float32), np.asarray(payload["max"], dtype=np.float32)
 
 
 def _score_trace(
@@ -133,7 +149,7 @@ def _format_value(value: float | None) -> str:
 
 def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
     lines = [
-        "# OpenPI pi0.5 LoRA Step 9999 Gain Calibration",
+        "# OpenPI pi0.5 LoRA Gain Calibration",
         "",
         f"Created: {payload['created_at']}",
         "",
@@ -145,17 +161,16 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
         "",
         "## Ranked Gain Grid",
         "",
-        "| Rank | j2 gain | j4 gain | j2 slope | j2 MAE | j4 slope | j4 MAE | mean target MAE | score |",
+        "| Rank | j2 gain | j3 gain | j4 gain | j2 slope | j3 slope | j4 slope | mean target MAE | score |",
         "|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for idx, row in enumerate(payload["ranked"][:16], start=1):
         lines.append(
             "| "
-            f"{idx} | {row['gains']['2']:.2f} | {row['gains']['4']:.2f} | "
+            f"{idx} | {row['gains']['2']:.2f} | {row['gains']['3']:.2f} | {row['gains']['4']:.2f} | "
             f"{_format_value(row['diagonal']['2']['slope'])} | "
-            f"{_format_value(row['diagonal']['2']['norm_mae'])} | "
+            f"{_format_value(row['diagonal']['3']['slope'])} | "
             f"{_format_value(row['diagonal']['4']['slope'])} | "
-            f"{_format_value(row['diagonal']['4']['norm_mae'])} | "
             f"{_format_value(row['mean_target_norm_mae'])} | "
             f"{row['score']:.4f} |"
         )
@@ -167,11 +182,18 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
             "",
             "## Selected",
             "",
-            f"Score-selected gains: j2={selected['gains']['2']:.3f}, j4={selected['gains']['4']:.3f}",
+            (
+                "Score-selected gains: "
+                f"j2={selected['gains']['2']:.3f}, "
+                f"j3={selected['gains']['3']:.3f}, "
+                f"j4={selected['gains']['4']:.3f}"
+            ),
             "",
             (
                 "Conservative deployment gains: "
-                f"j2={conservative['gains']['2']:.3f}, j4={conservative['gains']['4']:.3f}"
+                f"j2={conservative['gains']['2']:.3f}, "
+                f"j3={conservative['gains']['3']:.3f}, "
+                f"j4={conservative['gains']['4']:.3f}"
             ),
             "",
             (
@@ -207,14 +229,18 @@ def main() -> int:
     _configure_eval_imports()
     import episode_batch_eval as batch_eval
 
-    min_values, max_values = batch_eval._action_bounds()
+    if args.action_bounds_json is not None:
+        min_values, max_values = _load_action_bounds(args.action_bounds_json.expanduser().resolve())
+    else:
+        min_values, max_values = batch_eval._action_bounds()
     traces = {joint: _load_trace(label_dir, joint) for joint in range(5)}
     j2_gains = _parse_gains(args.j2_gains)
+    j3_gains = _parse_gains(args.j3_gains)
     j4_gains = _parse_gains(args.j4_gains)
 
     rows: list[dict[str, Any]] = []
-    for j2_gain, j4_gain in product(j2_gains, j4_gains):
-        gains = {2: j2_gain, 4: j4_gain}
+    for j2_gain, j3_gain, j4_gain in product(j2_gains, j3_gains, j4_gains):
+        gains = {2: j2_gain, 3: j3_gain, 4: j4_gain}
         coverage: dict[str, Any] = {}
         diagonal: dict[str, Any] = {}
         for ranked_joint, (pred, gt) in traces.items():
@@ -227,21 +253,28 @@ def main() -> int:
             }
             diagonal[str(ranked_joint)] = diag
 
-        target_mae = _mean([diagonal["2"]["norm_mae"], diagonal["4"]["norm_mae"]])
+        target_mae = _mean(
+            [
+                diagonal["2"]["norm_mae"],
+                diagonal["3"]["norm_mae"],
+                diagonal["4"]["norm_mae"],
+            ]
+        )
         target_slope_error = _mean(
             [
                 abs(float(diagonal["2"]["slope"]) - 1.0),
+                abs(float(diagonal["3"]["slope"]) - 1.0),
                 abs(float(diagonal["4"]["slope"]) - 1.0),
             ]
         )
         # Keep the scoring simple: prioritize normalized MAE, then closeness to
         # unit raw slope, then smaller gains if metrics tie closely.
         score = float(target_mae or 0.0) + 0.05 * float(target_slope_error or 0.0) + 0.002 * (
-            (j2_gain - 1.0) + (j4_gain - 1.0)
+            (j2_gain - 1.0) + (j3_gain - 1.0) + (j4_gain - 1.0)
         )
         rows.append(
             {
-                "gains": {"2": j2_gain, "4": j4_gain},
+                "gains": {"2": j2_gain, "3": j3_gain, "4": j4_gain},
                 "score": score,
                 "mean_target_norm_mae": target_mae,
                 "mean_target_slope_abs_error": target_slope_error,
@@ -256,24 +289,25 @@ def main() -> int:
         row
         for row in ranked
         if row["score"] <= best_score + args.conservative_score_tolerance
-        and (row["gains"]["2"] > 1.0 or row["gains"]["4"] > 1.0)
+        and (row["gains"]["2"] > 1.0 or row["gains"]["3"] > 1.0 or row["gains"]["4"] > 1.0)
     ]
     conservative_selected = min(
         near_best or [ranked[0]],
         key=lambda row: (
-            (row["gains"]["2"] - 1.0) + (row["gains"]["4"] - 1.0),
+            (row["gains"]["2"] - 1.0) + (row["gains"]["3"] - 1.0) + (row["gains"]["4"] - 1.0),
             row["gains"]["2"],
+            row["gains"]["3"],
             row["gains"]["4"],
         ),
     )
-    baseline = next(row for row in rows if row["gains"] == {"2": 1.0, "4": 1.0})
+    baseline = next(row for row in rows if row["gains"] == {"2": 1.0, "3": 1.0, "4": 1.0})
     payload = {
         "created_at": _stamp(),
         "label_dir": str(label_dir),
         "output_dir": str(output_dir),
         "sign_eps": args.sign_eps,
         "conservative_score_tolerance": args.conservative_score_tolerance,
-        "swept_gains": {"2": j2_gains, "4": j4_gains},
+        "swept_gains": {"2": j2_gains, "3": j3_gains, "4": j4_gains},
         "baseline": baseline,
         "selected": ranked[0],
         "conservative_selected": conservative_selected,
@@ -291,12 +325,14 @@ def main() -> int:
     print(
         "score_selected "
         f"j2={selected['gains']['2']:.2f} "
+        f"j3={selected['gains']['3']:.2f} "
         f"j4={selected['gains']['4']:.2f} "
         f"score={selected['score']:.4f}"
     )
     print(
         "conservative_selected "
         f"j2={conservative_selected['gains']['2']:.3f} "
+        f"j3={conservative_selected['gains']['3']:.3f} "
         f"j4={conservative_selected['gains']['4']:.3f} "
         f"score={conservative_selected['score']:.4f}"
     )
