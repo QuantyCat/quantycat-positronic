@@ -39,6 +39,8 @@ fi
 
 cd "$OPENPI_REPO"
 
+export PYTHONPATH="$REPO/models/openpi/training_config${PYTHONPATH:+:$PYTHONPATH}"
+
 echo "Starting openpi training"
 echo "  config:      $CONFIG_NAME"
 echo "  exp name:    $EXP_NAME"

@@ -28,6 +28,8 @@ fi
 
 cd "$OPENPI_REPO"
 
+export PYTHONPATH="$REPO/models/openpi/training_config${PYTHONPATH:+:$PYTHONPATH}"
+
 echo "Computing norm stats for pi05_quantycat_lora"
 "${UV_CMD[@]}" run scripts/compute_norm_stats.py --config-name pi05_quantycat_lora
 
