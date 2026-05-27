@@ -1,6 +1,3 @@
-[submodule "vendor/openpi"]
-	path = vendor/openpi
-	url = git@github.com:QuantyCat/OpenPi.git
 [submodule "vendor/rynnvla-002"]
 	path = vendor/rynnvla-002
 	url = git@github.com:QuantyCat/RynnVLA-002.git

@@ -1,3 +1,6 @@
+# vendor/openpi is a plain clone managed by refresh_pi.sh, not a submodule.
+vendor/openpi/
+
 # Data lives in ~/quantycat-data (see .env.example), not in this repo.
 # These patterns guard against accidentally committing data if someone
 # recreates these paths locally.
