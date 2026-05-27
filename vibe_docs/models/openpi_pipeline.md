@@ -274,10 +274,15 @@ Notes:
 
 ## Live Deployment
 
+> **Inference scripts have moved to `quantycat-iron-fleet`.**
+>
+> All commands below should be run from `~/quantycat-iron-fleet`.
+> See `vibe_docs/inference.md` there for the full guide.
+
 ### Config File
 
 ```text
-models/openpi/inference/inference_config.json
+~/quantycat-iron-fleet/configs/openpi_so101.json
 ```
 
 Key defaults (as of 2026-05-23):
@@ -288,7 +293,7 @@ Key defaults (as of 2026-05-23):
 | `prompt` | `Put the screwdriver into the cup` | |
 | `sample_steps` | `10` | diffusion steps at inference |
 | `max_steps` | `0` | infinite loop (Ctrl+C to stop) |
-| `execute_steps_per_inference` | `20` | action chunk size before re-inferring |
+| `execute_steps_per_inference` | `10` | action chunk steps before re-inferring |
 | `control_period_s` | `0.033` | 1/30 fps — matches training fps |
 | `gain_vector` | `[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]` | recalibrate after first run |
 | `max_delta_per_command_deg` | `[4, 4, 6, 4, 4, 2]` | per-joint safety clip |
@@ -296,20 +301,22 @@ Key defaults (as of 2026-05-23):
 ### Check / Dry-Run / Live
 
 ```bash
+cd ~/quantycat-iron-fleet
+
 # Fast config check (no model load).
-bash models/openpi/run_scripts/inference.sh --check-only --skip-policy-load
+bash scripts/run_openpi.sh --check-only --skip-policy-load
 
 # Full policy-load check.
-bash models/openpi/run_scripts/inference.sh --check-only
+bash scripts/run_openpi.sh --check-only
 
 # Dry-run: connects to robot, runs policy, applies gain/clips, but does NOT send actions.
-bash models/openpi/run_scripts/inference.sh --dry-run --max-steps 5
+bash scripts/run_openpi.sh --dry-run --max-steps 5
 
 # Live run with step cap.
-bash models/openpi/run_scripts/inference.sh --max-steps 60
+bash scripts/run_openpi.sh --max-steps 60
 
 # Infinite live run.
-bash models/openpi/run_scripts/inference.sh
+bash scripts/run_openpi.sh
 ```
 
 ### Self-Start Workaround
@@ -318,8 +325,9 @@ From the default rest pose the model may predict near-hold actions. Pre-position
 the arm to an in-trajectory pose before handing control:
 
 ```bash
-python models/openpi/inference/test_motors.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
-bash models/openpi/run_scripts/inference.sh
+cd ~/quantycat-iron-fleet
+python scripts/test_motors.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
+bash scripts/run_openpi.sh
 ```
 
 The v2 checkpoint (trained on `clean_data` with hold trimmed, pauses removed,
@@ -337,11 +345,11 @@ converts back to live robot units (degrees), and sends the command dictionary.
 
 ### Logs
 
-Each rollout writes:
+Each rollout writes to `run_logs/openpi/` inside iron-fleet:
 
 ```text
-run_logs/openpi/<timestamp>/deployment_config.json
-run_logs/openpi/<timestamp>/rollout.jsonl
+~/quantycat-iron-fleet/run_logs/openpi/<timestamp>/deployment_config.json
+~/quantycat-iron-fleet/run_logs/openpi/<timestamp>/rollout.jsonl
 ```
 
 ---
@@ -440,6 +448,7 @@ the fix is in `models/preprocessing_data/remove_pauses.py`. Uses `setpts=N/{FPS}
 ## Minimal Checklist
 
 ```bash
+# --- Training (in quantycat-positronic) ---
 cd /home/caroline/quantycat-positronic
 
 # 0. Preprocess raw recordings.
@@ -456,7 +465,10 @@ bash models/openpi/run_scripts/preprocess.sh
 # 3. Train.
 bash models/openpi/run_scripts/training.sh
 
+# --- Inference (in quantycat-iron-fleet) ---
+cd /home/caroline/quantycat-iron-fleet
+
 # 4. Check deployment config, then dry-run.
-bash models/openpi/run_scripts/inference.sh --check-only
-bash models/openpi/run_scripts/inference.sh --dry-run --max-steps 5
+bash scripts/run_openpi.sh --check-only
+bash scripts/run_openpi.sh --dry-run --max-steps 5
 ```
