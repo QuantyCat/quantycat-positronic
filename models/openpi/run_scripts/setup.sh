@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Set up the openpi environment used by the Quantycat SO-101 pi05 config.
 #
-# Usage from /home/caroline/Desktop/quantycat-positronic:
+# Usage from the repo root:
 #   bash models/openpi/run_scripts/setup.sh
 #
 # This script does not patch openpi. It assumes the vendored OpenPI fork already

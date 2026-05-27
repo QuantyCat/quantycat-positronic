@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Compute openpi normalization statistics for the Quantycat SO-101 dataset.
 #
-# Usage from /home/caroline/Desktop/quantycat-positronic:
+# Usage from the repo root:
 #   bash models/openpi/run_scripts/preprocess.sh
 
 set -euo pipefail

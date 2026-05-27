@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fine-tune pi05 on the Quantycat SO-101 screwdriver dataset.
 #
-# Usage from /home/caroline/Desktop/quantycat-positronic:
+# Usage from the repo root:
 #   bash models/openpi/run_scripts/training.sh
 
 set -euo pipefail
