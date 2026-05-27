@@ -5,7 +5,6 @@ from collections.abc import Sequence
 import dataclasses
 import difflib
 import logging
-import os
 import pathlib
 from typing import Any, Literal, Protocol, TypeAlias
 
@@ -21,7 +20,7 @@ import openpi.models.tokenizer as _tokenizer
 import openpi.policies.aloha_policy as aloha_policy
 import openpi.policies.droid_policy as droid_policy
 import openpi.policies.libero_policy as libero_policy
-import quantycat_policy
+import quantycat_config
 import openpi.shared.download as _download
 import openpi.shared.normalize as _normalize
 import openpi.training.droid_rlds_dataset as droid_rlds_dataset
@@ -461,55 +460,6 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
             repack_transforms=repack_transform,
             data_transforms=data_transforms,
             model_transforms=model_transforms,
-        )
-
-
-@dataclasses.dataclass(frozen=True)
-class LeRobotQuantycatDataConfig(DataConfigFactory):
-    """LeRobot data config for Quantycat SO-101 screwdriver data."""
-
-    # Controls which image fills the right_wrist_0_rgb model slot.
-    # See quantycat_policy.QuantycatInputs for valid values.
-    right_wrist_source: str = "wrist"
-    action_sequence_keys: Sequence[str] = ("action",)
-
-    @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
-        repack_transform = _transforms.Group(
-            inputs=[
-                _transforms.RepackTransform(
-                    {
-                        "observation/images/front": "observation.images.front",
-                        "observation/images/wrist": "observation.images.wrist",
-                        "observation/state": "observation.state",
-                        "action": "action",
-                        "prompt": "prompt",
-                    }
-                )
-            ]
-        )
-
-        data_transforms = _transforms.Group(
-            inputs=[quantycat_policy.QuantycatInputs(right_wrist_source=self.right_wrist_source)],
-            outputs=[quantycat_policy.QuantycatOutputs(action_dim=6)],
-        )
-
-        # Raw dataset actions are absolute 6-D joint/gripper targets.
-        # Train joints 0-4 as deltas relative to current state; leave gripper absolute.
-        delta_action_mask = _transforms.make_bool_mask(5, -1)
-        data_transforms = data_transforms.push(
-            inputs=[_transforms.DeltaActions(delta_action_mask)],
-            outputs=[_transforms.AbsoluteActions(delta_action_mask)],
-        )
-
-        model_transforms = ModelTransformFactory()(model_config)
-
-        return dataclasses.replace(
-            self.create_base_config(assets_dirs, model_config),
-            repack_transforms=repack_transform,
-            data_transforms=data_transforms,
-            model_transforms=model_transforms,
-            action_sequence_keys=self.action_sequence_keys,
         )
 
 
@@ -967,165 +917,7 @@ _CONFIGS = [
         num_train_steps=20_000,
         batch_size=32,
     ),
-    #
-    # Quantycat SO-101 screwdriver fine-tuning configs.
-    #
-    # All paths are driven by the QUANTYCAT_DATA_HOME environment variable
-    # (default: ~/quantycat-data). Set it to a mounted data volume on cloud VMs.
-    #
-    TrainConfig(
-        name="pi05_quantycat",
-        model=pi0_config.Pi0Config(pi05=True, action_horizon=20),
-        data=LeRobotQuantycatDataConfig(
-            repo_id=os.path.join(
-                os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-                "datasets", "screwdriver_so101", "clean",
-            ),
-            assets=AssetsConfig(
-                assets_dir=os.path.join(
-                    os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-                    "norm_stats", "openpi",
-                ),
-                asset_id="pi05_quantycat_lora",
-            ),
-            base_config=DataConfig(prompt_from_task=True),
-        ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-        num_train_steps=5_000,
-        ema_decay=None,
-        batch_size=4,
-        num_workers=2,
-        save_interval=1000,
-        keep_period=5000,
-        wandb_enabled=False,
-        checkpoint_base_dir=os.path.join(
-            os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-            "checkpoints", "openpi",
-        ),
-    ),
-    TrainConfig(
-        name="pi05_quantycat_lora",
-        model=pi0_config.Pi0Config(
-            pi05=True,
-            action_horizon=20,
-            paligemma_variant="gemma_2b_lora",
-            action_expert_variant="gemma_300m_lora",
-        ),
-        data=LeRobotQuantycatDataConfig(
-            repo_id=os.path.join(
-                os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-                "datasets", "screwdriver_so101", "clean",
-            ),
-            assets=AssetsConfig(
-                assets_dir=os.path.join(
-                    os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-                    "norm_stats", "openpi",
-                ),
-                asset_id="pi05_quantycat_lora",
-            ),
-            base_config=DataConfig(prompt_from_task=True),
-        ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-        num_train_steps=5_000,
-        freeze_filter=pi0_config.Pi0Config(
-            pi05=True,
-            action_horizon=20,
-            paligemma_variant="gemma_2b_lora",
-            action_expert_variant="gemma_300m_lora",
-        ).get_freeze_filter(),
-        ema_decay=None,
-        batch_size=4,
-        num_workers=2,
-        save_interval=1000,
-        keep_period=5000,
-        wandb_enabled=False,
-        checkpoint_base_dir=os.path.join(
-            os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-            "checkpoints", "openpi",
-        ),
-    ),
-    TrainConfig(
-        name="pi05_quantycat_lora_achieved_delta",
-        model=pi0_config.Pi0Config(
-            pi05=True,
-            action_horizon=20,
-            paligemma_variant="gemma_2b_lora",
-            action_expert_variant="gemma_300m_lora",
-        ),
-        data=LeRobotQuantycatDataConfig(
-            repo_id=os.path.join(
-                os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-                "datasets", "screwdriver_so101", "clean_achieved_delta",
-            ),
-            assets=AssetsConfig(
-                assets_dir=os.path.join(
-                    os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-                    "norm_stats", "openpi",
-                ),
-                asset_id="pi05_quantycat_lora_achieved_delta",
-            ),
-            base_config=DataConfig(prompt_from_task=True),
-        ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-        num_train_steps=5_000,
-        freeze_filter=pi0_config.Pi0Config(
-            pi05=True,
-            action_horizon=20,
-            paligemma_variant="gemma_2b_lora",
-            action_expert_variant="gemma_300m_lora",
-        ).get_freeze_filter(),
-        ema_decay=None,
-        batch_size=4,
-        num_workers=2,
-        save_interval=1000,
-        keep_period=5000,
-        wandb_enabled=False,
-        checkpoint_base_dir=os.path.join(
-            os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-            "checkpoints", "openpi",
-        ),
-    ),
-    TrainConfig(
-        name="pi05_quantycat_lora_achieved_delta_train39",
-        model=pi0_config.Pi0Config(
-            pi05=True,
-            action_horizon=20,
-            paligemma_variant="gemma_2b_lora",
-            action_expert_variant="gemma_300m_lora",
-        ),
-        data=LeRobotQuantycatDataConfig(
-            repo_id=os.path.join(
-                os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-                "datasets", "screwdriver_so101", "clean_achieved_delta_train39",
-            ),
-            assets=AssetsConfig(
-                assets_dir=os.path.join(
-                    os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-                    "norm_stats", "openpi",
-                ),
-                asset_id="pi05_quantycat_lora_achieved_delta_train39",
-            ),
-            base_config=DataConfig(prompt_from_task=True),
-        ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-        num_train_steps=5_000,
-        freeze_filter=pi0_config.Pi0Config(
-            pi05=True,
-            action_horizon=20,
-            paligemma_variant="gemma_2b_lora",
-            action_expert_variant="gemma_300m_lora",
-        ).get_freeze_filter(),
-        ema_decay=None,
-        batch_size=4,
-        num_workers=2,
-        save_interval=1000,
-        keep_period=5000,
-        wandb_enabled=False,
-        checkpoint_base_dir=os.path.join(
-            os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data")),
-            "checkpoints", "openpi",
-        ),
-    ),
+    *quantycat_config.get_quantycat_configs(),
     #
     # ALOHA Sim configs. This config is used to demonstrate how to train on a simple simulated environment.
     #

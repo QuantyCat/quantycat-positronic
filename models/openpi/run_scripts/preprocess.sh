@@ -10,7 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
 DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
-NORM_STATS_PATH="$DATA_HOME/norm_stats/openpi/${CONFIG_NAME:-pi05_quantycat_lora}/norm_stats.json"
+CONFIG_NAME="${CONFIG_NAME:-pi05_quantycat_lora}"
+NORM_STATS_DIR="$DATA_HOME/norm_stats/openpi/${CONFIG_NAME}"
 
 if [ ! -d "$OPENPI_REPO" ]; then
     echo "ERROR: openpi repo not found at: $OPENPI_REPO"
@@ -30,16 +31,17 @@ fi
 cd "$OPENPI_REPO"
 
 export PYTHONPATH="$REPO/models/openpi/training_config${PYTHONPATH:+:$PYTHONPATH}"
+export HF_LEROBOT_HOME="$DATA_HOME/datasets"
 
-echo "Computing norm stats for pi05_quantycat_lora"
-"${UV_CMD[@]}" run scripts/compute_norm_stats.py --config-name pi05_quantycat_lora
+echo "Computing norm stats for $CONFIG_NAME"
+"${UV_CMD[@]}" run scripts/compute_norm_stats.py --config-name "$CONFIG_NAME"
 
-if [ ! -f "$NORM_STATS_PATH" ]; then
-    echo "ERROR: expected norm stats not found at:"
-    echo "  $NORM_STATS_PATH"
+if [ -z "$(find "$NORM_STATS_DIR" -name "norm_stats.json" 2>/dev/null)" ]; then
+    echo "ERROR: expected norm stats not found under:"
+    echo "  $NORM_STATS_DIR"
     exit 1
 fi
 
 echo ""
 echo "Norm stats ready:"
-echo "  $NORM_STATS_PATH"
+echo "  $NORM_STATS_DIR"
