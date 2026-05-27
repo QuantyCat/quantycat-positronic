@@ -35,6 +35,14 @@ def _stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
+def _checkpoint_name(cfg: dict[str, Any]) -> str:
+    checkpoint = Path(cfg["model"]["checkpoint_path"])
+    name = checkpoint.name
+    if name.isdigit():
+        name = checkpoint.parent.name
+    return name
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     if not path.is_file():
         raise FileNotFoundError(path)
@@ -540,6 +548,19 @@ def _prepare_compat_calibration(robot_id: str) -> Path:
     return out_dir
 
 
+def _open_front_video_writer(session_dir: Path, cfg: dict[str, Any]):
+    import cv2
+    w = int(cfg["robot"]["camera_width"])
+    h = int(cfg["robot"]["camera_height"])
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    return cv2.VideoWriter(str(session_dir / "rollout_front.mp4"), fourcc, 30.0, (w, h))
+
+
+def _write_front_frame(writer, front_arr: np.ndarray) -> None:
+    import cv2
+    writer.write(cv2.cvtColor(_image_to_uint8_hwc(front_arr), cv2.COLOR_RGB2BGR))
+
+
 def main() -> int:
     root = _repo_root()
     parser = argparse.ArgumentParser(description=__doc__)
@@ -590,11 +611,12 @@ def main() -> int:
     log_dir = _resolve_path(root, control.get("log_dir", "run_logs/openpi"))
     if log_dir is None:
         raise ValueError("control.log_dir cannot be empty")
-    session_dir = log_dir / _stamp()
+    session_dir = log_dir / f"{_stamp()}_{_checkpoint_name(cfg)}"
     session_dir.mkdir(parents=True, exist_ok=True)
     log_path = session_dir / "rollout.jsonl"
     (session_dir / "deployment_config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
+    video_writer = _open_front_video_writer(session_dir, cfg)
     robot = _make_robot(cfg)
     step = 0
     try:
@@ -614,6 +636,7 @@ def main() -> int:
         while True:
             obs = _read_observation(robot)
             policy_obs, state_raw, state_model = _obs_to_policy_input(obs, cfg)
+            _write_front_frame(video_writer, policy_obs["observation/images/front"])
             state_issue = _state_guard_issue(state_model, cfg, state_stats)
             if control.get("save_latest_observation", True):
                 np.save(session_dir / "latest_front.npy", policy_obs["observation/images/front"])
@@ -649,7 +672,8 @@ def main() -> int:
             for horizon_idx in range(execute_steps):
                 if horizon_idx > 0:
                     obs = _read_observation(robot)
-                    _, state_raw, state_model = _obs_to_policy_input(obs, cfg)
+                    inner_obs, state_raw, state_model = _obs_to_policy_input(obs, cfg)
+                    _write_front_frame(video_writer, inner_obs["observation/images/front"])
                     state_issue = _state_guard_issue(state_model, cfg, state_stats)
                     if state_issue is not None:
                         _append_jsonl(
@@ -709,6 +733,7 @@ def main() -> int:
     except KeyboardInterrupt:
         print("\nStopped by user.")
     finally:
+        video_writer.release()
         if getattr(robot, "is_connected", False):
             robot.disconnect()
     return 0
