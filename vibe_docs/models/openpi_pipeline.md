@@ -10,22 +10,25 @@ folders and no pretokenization step.
 ## Full Pipeline
 
 ```
-my_data/input_data/                         (LeRobot v2.1 format — raw, never modified)
+~/quantycat-data/datasets/screwdriver_so101/raw/   (LeRobot v2.1 — never modified)
     data/chunk-000/episode_*.parquet
     videos/chunk-000/observation.images.front/*.mp4
     videos/chunk-000/observation.images.wrist/*.mp4
     meta/*.json*
         ↓  pipeline.sh (models/preprocessing_data/)
-my_data/clean_input_data/                         (trimmed, pauses removed, actions smoothed)
+~/quantycat-data/datasets/screwdriver_so101/clean/ (trimmed, pauses removed, smoothed)
         ↓  setup.sh
-vendor/openpi/.venv                         (uv-managed openpi environment)
+vendor/openpi/.venv                                (uv-managed openpi environment)
         ↓  preprocess.sh
-models/openpi/training_pipeline/norm_stats.json
+~/quantycat-data/norm_stats/openpi/pi05_quantycat_lora/norm_stats.json
         ↓  training.sh
-models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/05232026_pi05_lora/
-        ↓  inference.sh
+~/quantycat-data/checkpoints/openpi/pi05_quantycat_lora/05232026_pi05_lora/
+        ↓  run_openpi.sh (in quantycat-iron-fleet)
 SO-101 robot
 ```
+
+Data location is controlled by `QUANTYCAT_DATA_HOME` (default: `~/quantycat-data`).
+See `.env.example` for cloud override instructions.
 
 ---
 
@@ -381,28 +384,24 @@ Inference callers must send observations with the keys expected by `QuantycatInp
 
 ## Output Locations
 
-OpenPI work root:
-
-```text
-/home/caroline/quantycat-positronic/models/openpi/training_pipeline/
-```
+All outputs write to `$QUANTYCAT_DATA_HOME` (default: `~/quantycat-data`).
 
 Norm stats:
 
 ```text
-models/openpi/training_pipeline/norm_stats.json
+~/quantycat-data/norm_stats/openpi/pi05_quantycat_lora/norm_stats.json
 ```
 
 Checkpoints:
 
 ```text
-models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/<exp-name>/
+~/quantycat-data/checkpoints/openpi/pi05_quantycat_lora/<exp-name>/
 ```
 
 Current experiment:
 
 ```text
-models/openpi/training_pipeline/checkpoints/pi05_quantycat_lora/05232026_pi05_lora/
+~/quantycat-data/checkpoints/openpi/pi05_quantycat_lora/05232026_pi05_lora/
 ```
 
 ---

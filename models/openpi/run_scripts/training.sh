@@ -11,8 +11,9 @@ REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
 CONFIG_NAME="${CONFIG_NAME:-pi05_quantycat_lora}"
 EXP_NAME="${EXP_NAME:-05232026_pi05_lora}"
-NORM_STATS_PATH="$REPO/models/openpi/training_pipeline/norm_stats.json"
-CHECKPOINT_DIR="$REPO/models/openpi/training_pipeline/checkpoints/${CONFIG_NAME}/${EXP_NAME}"
+DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
+NORM_STATS_PATH="$DATA_HOME/norm_stats/openpi/${CONFIG_NAME}/norm_stats.json"
+CHECKPOINT_DIR="$DATA_HOME/checkpoints/openpi/${CONFIG_NAME}/${EXP_NAME}"
 
 if [ ! -d "$OPENPI_REPO" ]; then
     echo "ERROR: openpi repo not found at: $OPENPI_REPO"

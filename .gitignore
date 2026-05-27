@@ -1,7 +1,8 @@
-my_data/*
-
-# Training pipeline outputs (checkpoints, norm stats, etc.)
-models/openpi/training_pipeline/
+# Data lives in ~/quantycat-data (see .env.example), not in this repo.
+# These patterns guard against accidentally committing data if someone
+# recreates these paths locally.
+my_data/
+models/openpi/training_pipeline*/
 models/rynnvla-002/training_pipeline/
 
 # Zip files
