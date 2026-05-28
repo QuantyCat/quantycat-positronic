@@ -36,7 +36,7 @@ mkdir -p "$(dirname "$LEROBOT_VENV")"
 "${UV_CMD[@]}" venv "$LEROBOT_VENV" --python 3.12
 
 echo "Installing lerobot[pi]"
-"${UV_CMD[@]}" pip install --python "$LEROBOT_VENV" "lerobot[pi]==0.5.1"
+"${UV_CMD[@]}" pip install --python "$LEROBOT_VENV" "lerobot[pi]==0.5.1" peft
 
 echo ""
 echo "Setup complete. lerobot venv at: $LEROBOT_VENV"

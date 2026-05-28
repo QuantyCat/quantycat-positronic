@@ -49,11 +49,14 @@ HF_LEROBOT_HOME="$DATA_HOME/datasets" \
     --policy.relative_exclude_joints='["gripper.pos"]' \
     --policy.normalization_mapping='{"ACTION": "MEAN_STD", "STATE": "MEAN_STD", "VISUAL": "IDENTITY"}' \
     --policy.dtype=bfloat16 \
-    --policy.compile_model=true \
+    --peft.method_type=LORA \
+    --policy.compile_model=false \
     --policy.gradient_checkpointing=true \
     --steps=5000 \
     --batch_size=4 \
     --policy.device=cuda \
+    --dataset.use_imagenet_stats=false \
+    --policy.push_to_hub=false \
     --output_dir="$CHECKPOINT_DIR"
 
 echo ""
