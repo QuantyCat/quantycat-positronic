@@ -32,7 +32,7 @@ DATA_HOME = Path(os.environ.get("QUANTYCAT_DATA_HOME", str(Path.home() / "quanty
 DEFAULT_DATASET = DATA_HOME / "datasets/screwdriver_so101_clean"
 DEFAULT_CHECKPOINT = (
     DATA_HOME
-    / "checkpoints/lerobot/pi05/05282026_pi05_lerobot/checkpoints/005000/pretrained_model"
+    / "checkpoints/lerobot/pi05/05282026_pi05_lerobot/checkpoints/003000/pretrained_model"
 )
 PROMPT = "Put the screwdriver into the cup"
 FOCUS_JOINTS = ("joint_0", "joint_1", "joint_2", "joint_3", "joint_4")
@@ -274,12 +274,11 @@ def _policy_delta(
 
     actions_norm = actions_norm[0, :horizon].cpu().float().numpy()  # [horizon, 6]
 
-    # Unnormalize from MEAN_STD: action = norm * std + mean
+    # Unnormalize from MEAN_STD → absolute target positions
     actions = actions_norm * action_std[:6] + action_mean[:6]
 
-    # Policy was trained with use_relative_actions=True (gripper excluded):
-    # joints 0-4 → target-current delta (already in delta space)
-    # joint 5    → absolute gripper target
+    # Convert to delta space to match GT (action - current_state for joints 0-4, gripper stays absolute)
+    actions[:, :5] -= state[:5].reshape(1, 5)
     return actions
 
 
