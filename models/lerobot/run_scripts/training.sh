@@ -52,6 +52,7 @@ HF_LEROBOT_HOME="$DATA_HOME/datasets" \
     --policy.gradient_checkpointing=true \
     --policy.freeze_vision_encoder=false \
     --policy.train_expert_only=false \
+    --peft.method_type=LORA \
     --steps=3000 \
     --batch_size=2 \
     --policy.device=cuda \
