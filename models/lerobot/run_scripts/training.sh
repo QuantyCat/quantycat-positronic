@@ -16,7 +16,7 @@ REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 LEROBOT_VENV="${LEROBOT_VENV:-$REPO/vendor/lerobot/.venv}"
 DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
 DATASET_REPO_ID="${DATASET_REPO_ID:-screwdriver_so101}"
-EXP_NAME="${EXP_NAME:-$(date +%m%d%Y)_pi05_lerobot}"
+EXP_NAME="${EXP_NAME:-$(TZ=America/Los_Angeles date +%m%d%Y_%H%M)_pi05_lerobot}"
 CHECKPOINT_DIR="$DATA_HOME/checkpoints/lerobot/pi05/$EXP_NAME"
 
 if [ ! -d "$LEROBOT_VENV" ]; then

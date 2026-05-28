@@ -3,13 +3,6 @@ vendor/openpi/
 # vendor/lerobot/.venv is managed by models/lerobot/run_scripts/setup.sh
 vendor/lerobot/
 
-# Data lives in ~/quantycat-data (see .env.example), not in this repo.
-# These patterns guard against accidentally committing data if someone
-# recreates these paths locally.
-my_data/
-models/openpi/training_pipeline*/
-models/rynnvla-002/training_pipeline/
-
 # Zip files
 *.zip
 
@@ -26,9 +19,6 @@ ENV/
 dist/
 build/
 
-# Checkpoints
-models/rynnvla-002/ckpts/
-
 # Model artifacts
 *.pt
 *.pth
@@ -37,11 +27,9 @@ models/rynnvla-002/ckpts/
 *.safetensors
 
 # ML experiment tracking
-wandb/
 outputs/
 multirun/
 training_output/
-eval_output/
 
 # Config files with secrets
 .env
@@ -61,16 +49,9 @@ eval_output/
 .coverage
 htmlcov/
 
-# Logs and data
-logs/
+# Logs
 *.log
 tmp/
-data/
-
-# Generated OpenPI local diagnostics and live-run captures.
-run_logs/openpi/
-run_logs/openpi_pi05_inference_benchmark_*.json
-run_logs/openpi_runtime_diagnosis_*.json
 
 # Robot/ML data files
 *.h5
@@ -81,8 +62,6 @@ demonstrations/
 
 # OS
 .DS_Store
-
-models/rynnvla-002/.installed_Linux
 
 # Local shim package cache for shared servo SDK import.
 _vendor/scservo_sdk/__pycache__/

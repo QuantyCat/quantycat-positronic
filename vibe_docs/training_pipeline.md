@@ -53,6 +53,8 @@ $INPUT_DIR/
 | Model | Folder | Pipeline doc |
 |---|---|---|
 | ACT | `models/act/` | `vibe_docs/models/act_pipeline.md` |
+| OpenPI π0.5 | `models/openpi/` | `vibe_docs/models/openpi_pipeline.md` |
+| LeRobot pi05 LoRA | `models/lerobot/` | `vibe_docs/models/lerobot_pipeline.md` |
 | RynnVLA-002 | `models/rynnvla-002/` | `vibe_docs/models/rynnvla002_pipeline.md` |
 
 Adding a new model = one new folder under `models/`.
