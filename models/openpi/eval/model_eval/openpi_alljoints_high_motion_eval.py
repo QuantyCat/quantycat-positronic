@@ -17,8 +17,8 @@ import numpy as np
 
 REPO = Path(__file__).resolve().parents[4]
 OPENPI_REPO = REPO / "vendor/openpi"
-RYNNVLA_REPO = REPO / "vendor/rynnvla-002/rynnvla-002"
-RYNN_EVAL_DIR = REPO / "models/rynnvla-002/eval/model_eval"
+EVAL_DIR = REPO / "models/openpi/eval/model_eval"
+NORM_STATS_ROOT = Path.home() / "quantycat-data/norm_stats/openpi"
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
 FIND_WINDOWS_SCRIPT = REPO / "models/rynnvla-002/eval/data_analysis/find_high_motion_windows.py"
 TASK_DIR = REPO / "models/rynnvla-002/training_pipeline/training_data/Put_the_screwdriver_into_the_cup"
@@ -176,7 +176,7 @@ def _eval_joint(joint: int, output_dir: Path, windows: list[dict[str, Any]], pol
     import episode_batch_eval as batch_eval
     import episode_step_eval as step_eval
 
-    min_values, max_values = batch_eval._action_bounds()
+    min_values, max_values = batch_eval._action_bounds(NORM_STATS_ROOT / args.config_name / "norm_stats.json")
     all_pred: list[np.ndarray] = []
     all_gt: list[np.ndarray] = []
     cases_out: list[dict[str, Any]] = []
@@ -296,14 +296,9 @@ def main() -> int:
     if not (args.checkpoint / "params").is_dir():
         raise FileNotFoundError(args.checkpoint / "params")
 
-    sys.path.insert(0, str(RYNNVLA_REPO))
-    sys.path.insert(0, str(RYNN_EVAL_DIR))
+    sys.path.insert(0, str(EVAL_DIR))
     import episode_batch_eval as batch_eval
     import episode_step_eval as step_eval
-
-    root = step_eval._repo_root()
-    cfg = step_eval._load_positronic_config(CONFIG)
-    batch_eval._configure_env(root, cfg)
 
     joints = [int(item.strip()) for item in args.joints.split(",") if item.strip()]
     label_dir = args.output_root.expanduser().resolve() / args.label

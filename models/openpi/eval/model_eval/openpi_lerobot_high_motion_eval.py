@@ -19,7 +19,7 @@ import pandas as pd
 
 REPO = Path(__file__).resolve().parents[4]
 OPENPI_REPO = REPO / "vendor/openpi"
-RYNN_EVAL_DIR = REPO / "models/rynnvla-002/eval/model_eval"
+EVAL_DIR = REPO / "models/openpi/eval/model_eval"
 DEFAULT_ROOT = REPO / "eval_output/screwdriver_so101/model_eval"
 DEFAULT_DATASET = REPO / "my_data/clean_input_data_achieved_delta"
 DEFAULT_CHECKPOINT = (
@@ -283,7 +283,7 @@ def _eval_joint(
     if report.exists():
         report.unlink()
 
-    sys.path.insert(0, str(RYNN_EVAL_DIR))
+    sys.path.insert(0, str(EVAL_DIR))
     import episode_batch_eval as batch_eval
     import episode_step_eval as step_eval
 

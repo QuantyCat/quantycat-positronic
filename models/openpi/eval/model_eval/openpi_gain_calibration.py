@@ -16,9 +16,8 @@ import numpy as np
 
 
 REPO = Path(__file__).resolve().parents[4]
-RYNNVLA_REPO = REPO / "vendor/rynnvla-002/rynnvla-002"
-RYNN_EVAL_DIR = REPO / "models/rynnvla-002/eval/model_eval"
-CONFIG = REPO / "models/rynnvla-002/config.yaml"
+EVAL_DIR = REPO / "models/openpi/eval/model_eval"
+NORM_STATS_ROOT = Path.home() / "quantycat-data/norm_stats/openpi"
 DEFAULT_LABEL_DIR = (
     REPO
     / "eval_output/screwdriver_so101/model_eval/openpi_pi05_h20_lora_step9999"
@@ -48,6 +47,12 @@ def _parse_args() -> argparse.Namespace:
         help="Optional JSON with {'min': [...], 'max': [...]} bounds for normalized metrics.",
     )
     parser.add_argument(
+        "--norm-stats",
+        type=Path,
+        default=NORM_STATS_ROOT / "pi05_quantycat_lora_achieved_delta" / "norm_stats.json",
+        help="Path to openpi norm_stats.json used for action bound normalization.",
+    )
+    parser.add_argument(
         "--conservative-score-tolerance",
         type=float,
         default=0.00025,
@@ -61,15 +66,7 @@ def _stamp() -> str:
 
 
 def _configure_eval_imports() -> None:
-    sys.path.insert(0, str(RYNNVLA_REPO))
-    sys.path.insert(0, str(RYNN_EVAL_DIR))
-
-    import episode_batch_eval as batch_eval
-    import episode_step_eval as step_eval
-
-    root = step_eval._repo_root()
-    cfg = step_eval._load_positronic_config(CONFIG)
-    batch_eval._configure_env(root, cfg)
+    sys.path.insert(0, str(EVAL_DIR))
 
 
 def _joint_focus(summary: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -232,7 +229,7 @@ def main() -> int:
     if args.action_bounds_json is not None:
         min_values, max_values = _load_action_bounds(args.action_bounds_json.expanduser().resolve())
     else:
-        min_values, max_values = batch_eval._action_bounds()
+        min_values, max_values = batch_eval._action_bounds(args.norm_stats.expanduser().resolve())
     traces = {joint: _load_trace(label_dir, joint) for joint in range(5)}
     j2_gains = _parse_gains(args.j2_gains)
     j3_gains = _parse_gains(args.j3_gains)
