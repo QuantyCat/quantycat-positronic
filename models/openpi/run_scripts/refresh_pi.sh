@@ -24,9 +24,8 @@ if [ ! -d "$OPENPI_REPO/.git" ]; then
     git clone --branch "$OPENPI_REF" --depth 1 "$OPENPI_UPSTREAM" "$OPENPI_REPO"
 else
     echo "Updating openpi at $OPENPI_REPO"
-    git -C "$OPENPI_REPO" fetch origin
-    git -C "$OPENPI_REPO" checkout "$OPENPI_REF"
-    git -C "$OPENPI_REPO" pull --ff-only origin "$OPENPI_REF"
+    git -C "$OPENPI_REPO" fetch origin "$OPENPI_REF"
+    git -C "$OPENPI_REPO" reset --hard FETCH_HEAD
 fi
 
 # ── 2. Apply Quantycat patches ────────────────────────────────────────────────
