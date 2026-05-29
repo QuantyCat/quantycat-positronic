@@ -21,7 +21,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import cv2
 import numpy as np
 import pandas as pd
 
@@ -29,10 +28,10 @@ import pandas as pd
 REPO = Path(__file__).resolve().parents[3]
 OPENPI_EVAL_DIR = REPO / "models/openpi/eval/model_eval"
 DATA_HOME = Path(os.environ.get("QUANTYCAT_DATA_HOME", str(Path.home() / "quantycat-data")))
-DEFAULT_DATASET = DATA_HOME / "datasets/screwdriver_so101_clean"
+DEFAULT_DATASET = DATA_HOME / "datasets/screwdriver_so101"
 DEFAULT_CHECKPOINT = (
     DATA_HOME
-    / "checkpoints/lerobot/pi05/05282026_pi05_lerobot/checkpoints/003000/pretrained_model"
+    / "checkpoints/lerobot/pi05/05282026_1657_pi05_lerobot/checkpoints/010000/pretrained_model"
 )
 PROMPT = "Put the screwdriver into the cup"
 FOCUS_JOINTS = ("joint_0", "joint_1", "joint_2", "joint_3", "joint_4")
@@ -183,17 +182,24 @@ def _find_windows(
 
 
 def _load_frame(video_path: Path, frame_index: int) -> np.ndarray:
-    cap = cv2.VideoCapture(str(video_path))
-    if not cap.isOpened():
-        raise ValueError(f"Could not open video: {video_path}")
-    try:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
-        ok, frame = cap.read()
-        if not ok:
-            raise ValueError(f"Could not read frame {frame_index} from {video_path}")
-        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    finally:
-        cap.release()
+    import av
+    with av.open(str(video_path)) as container:
+        stream = container.streams.video[0]
+        fps = float(stream.average_rate)
+        time_base = float(stream.time_base)
+        seek_secs = max(0.0, frame_index / fps - 10.0)
+        container.seek(int(seek_secs / time_base), stream=stream)
+        last_frame = None
+        for frame in container.decode(stream):
+            if frame.pts is None:
+                continue
+            frame_num = round(frame.pts * time_base * fps)
+            last_frame = frame
+            if frame_num >= frame_index:
+                return frame.to_ndarray(format="rgb24")
+        if last_frame is not None:
+            return last_frame.to_ndarray(format="rgb24")
+    raise ValueError(f"Could not read frame {frame_index} from {video_path}")
 
 
 def _load_policy(checkpoint_dir: Path, device: str = "cuda"):
@@ -202,6 +208,7 @@ def _load_policy(checkpoint_dir: Path, device: str = "cuda"):
     from peft import PeftConfig, PeftModel
     from safetensors import safe_open
     from lerobot.policies.pi05.modeling_pi05 import PI05Policy
+    import lerobot.policies.pi05.processor_pi05  # noqa: F401 - registers PI0.5 processor steps
     from lerobot.processor.pipeline import DataProcessorPipeline
 
     from lerobot.configs.policies import PreTrainedConfig
@@ -221,7 +228,9 @@ def _load_policy(checkpoint_dir: Path, device: str = "cuda"):
     _log("Policy loaded")
 
     preprocessor = DataProcessorPipeline.from_pretrained(
-        str(checkpoint_dir), config_filename="policy_preprocessor.json"
+        str(checkpoint_dir),
+        config_filename="policy_preprocessor.json",
+        overrides={"device_processor": {"device": device}},
     )
     _log("Preprocessor loaded")
 
@@ -268,7 +277,9 @@ def _policy_delta(
         for k, v in processed.items()
     }
 
-    with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+    device_type = torch.device(device).type
+    autocast_enabled = device_type == "cuda"
+    with torch.no_grad(), torch.autocast(device_type, dtype=torch.bfloat16, enabled=autocast_enabled):
         # Returns [1, chunk_size, action_dim] in MEAN_STD normalized space
         actions_norm = policy.predict_action_chunk(processed)
 
