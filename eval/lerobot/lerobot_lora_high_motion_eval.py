@@ -35,14 +35,37 @@ DEFAULT_CHECKPOINT = (
 )
 PROMPT = "Put the screwdriver into the cup"
 FOCUS_JOINTS = ("joint_0", "joint_1", "joint_2", "joint_3", "joint_4")
+EXPECTED_DATASET_REPO_ID = "screwdriver_so101"
+EXPECTED_TRAINING_CONFIG: dict[tuple[str, ...], Any] = {
+    ("policy", "type"): "pi05",
+    ("policy", "pretrained_path"): "lerobot/pi05_base",
+    ("policy", "normalization_mapping"): {"ACTION": "MEAN_STD", "STATE": "MEAN_STD", "VISUAL": "IDENTITY"},
+    ("policy", "dtype"): "bfloat16",
+    ("policy", "compile_model"): True,
+    ("policy", "gradient_checkpointing"): True,
+    ("policy", "freeze_vision_encoder"): False,
+    ("policy", "train_expert_only"): False,
+    ("policy", "use_relative_actions"): False,
+    ("policy", "push_to_hub"): False,
+    ("peft", "method_type"): "LORA",
+    ("steps",): 10000,
+    ("batch_size",): 2,
+}
+
+
+@dataclass(frozen=True)
+class VideoShard:
+    path: Path
+    start_frame: int
+    frame_count: int
 
 
 @dataclass(frozen=True)
 class EpisodeData:
     index: int
     parquet: Path
-    front_video: Path
-    wrist_video: Path
+    front_videos: tuple[VideoShard, ...]
+    wrist_videos: tuple[VideoShard, ...]
     states: np.ndarray
     actions: np.ndarray
     global_indices: np.ndarray  # maps per-episode step → global video frame index
@@ -58,7 +81,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--joints", default="0,1,2,3,4")
     parser.add_argument("--top-k", type=int, default=20)
     parser.add_argument("--window-size", type=int, default=50)
-    parser.add_argument("--action-horizon", type=int, default=20)
+    parser.add_argument("--action-horizon", type=int, default=50)
     parser.add_argument("--sign-eps", type=float, default=0.01)
     parser.add_argument("--output-root", type=Path,
                         default=DATA_HOME / "eval_output/lerobot/pi05")
@@ -80,8 +103,39 @@ def _episode_index(path: Path) -> int:
     return int(path.stem.split("_")[-1])
 
 
+def _video_shards(dataset_root: Path, video_key: str) -> tuple[VideoShard, ...]:
+    import av
+
+    video_files = sorted((dataset_root / "videos" / video_key).glob("chunk-*/file-*.mp4"))
+    if not video_files:
+        raise FileNotFoundError(f"No videos under {dataset_root / 'videos' / video_key}")
+
+    shards: list[VideoShard] = []
+    start_frame = 0
+    for video_file in video_files:
+        with av.open(str(video_file)) as container:
+            stream = container.streams.video[0]
+            frame_count = int(stream.frames or 0)
+            if frame_count <= 0 and stream.duration is not None and stream.average_rate is not None:
+                frame_count = int(round(float(stream.duration * stream.time_base * stream.average_rate)))
+        if frame_count <= 0:
+            raise ValueError(f"Could not determine frame count for {video_file}")
+        shards.append(VideoShard(video_file, start_frame, frame_count))
+        start_frame += frame_count
+    return tuple(shards)
+
+
+def _resolve_video_frame(shards: tuple[VideoShard, ...], global_frame: int) -> tuple[Path, int]:
+    for shard in shards:
+        local_frame = global_frame - shard.start_frame
+        if 0 <= local_frame < shard.frame_count:
+            return shard.path, local_frame
+    total_frames = shards[-1].start_frame + shards[-1].frame_count if shards else 0
+    raise IndexError(f"Global frame {global_frame} is outside video shard coverage 0:{total_frames}")
+
+
 def _load_episodes(dataset_root: Path) -> list[EpisodeData]:
-    # v3.0 format: all episodes consolidated into chunk-*/file-*.parquet
+    # v3.0 format: episodes may be consolidated into one or more chunk/file parquets.
     parquet_files = sorted((dataset_root / "data").glob("chunk-*/file-*.parquet"))
     if not parquet_files:
         raise FileNotFoundError(f"No parquet files under {dataset_root / 'data'}")
@@ -89,13 +143,15 @@ def _load_episodes(dataset_root: Path) -> list[EpisodeData]:
     df = pd.concat([pd.read_parquet(p) for p in parquet_files], ignore_index=True)
     df = df.sort_values(["episode_index", "frame_index"])
 
-    # v3.0: one consolidated video per camera
-    front_video = dataset_root / "videos/observation.images.front/chunk-000/file-000.mp4"
-    wrist_video = dataset_root / "videos/observation.images.wrist/chunk-000/file-000.mp4"
-    if not front_video.is_file():
-        raise FileNotFoundError(front_video)
-    if not wrist_video.is_file():
-        raise FileNotFoundError(wrist_video)
+    front_videos = _video_shards(dataset_root, "observation.images.front")
+    wrist_videos = _video_shards(dataset_root, "observation.images.wrist")
+    max_global_index = int(df["index"].max())
+    for video_key, shards in (("observation.images.front", front_videos), ("observation.images.wrist", wrist_videos)):
+        total_frames = shards[-1].start_frame + shards[-1].frame_count
+        if total_frames <= max_global_index:
+            raise ValueError(
+                f"{video_key} video shards cover {total_frames} frames, but dataset index reaches {max_global_index}"
+            )
 
     rows: list[EpisodeData] = []
     for episode_idx, group in df.groupby("episode_index"):
@@ -104,13 +160,12 @@ def _load_episodes(dataset_root: Path) -> list[EpisodeData]:
         states = np.stack(group["observation.state"].to_numpy()).astype(np.float32)
         actions = np.stack(group["action"].to_numpy()).astype(np.float32)
         global_indices = group["index"].to_numpy().astype(np.int64)
-        rows.append(EpisodeData(episode, parquet_files[0], front_video, wrist_video,
-                                states, actions, global_indices))
+        rows.append(EpisodeData(episode, parquet_files[0], front_videos, wrist_videos, states, actions, global_indices))
     return rows
 
 
 def _gt_chunk(ep: EpisodeData, step: int, horizon: int) -> np.ndarray:
-    """GT achieved-delta: joints 0-4 as future_state - current_state, gripper absolute."""
+    """GT commanded-delta: joints 0-4 as commanded_target - current_state, gripper absolute."""
     if step < 0 or step + horizon > len(ep.actions):
         raise ValueError(f"episode {ep.index} step {step} cannot provide horizon {horizon}")
     state = ep.states[step]
@@ -173,7 +228,7 @@ def _find_windows(
             "dataset_root": str(args.dataset_root),
             "window_size": args.window_size,
             "action_horizon": args.action_horizon,
-            "rank_metric": f"mean_abs_achieved_delta_joint_{joint}_over_chunk_and_window",
+            "rank_metric": f"mean_abs_commanded_delta_joint_{joint}_over_chunk_and_window",
             "windows": selected,
         }, indent=2),
         encoding="utf-8",
@@ -202,27 +257,146 @@ def _load_frame(video_path: Path, frame_index: int) -> np.ndarray:
     raise ValueError(f"Could not read frame {frame_index} from {video_path}")
 
 
+def _load_json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _nested_get(data: dict[str, Any], path: tuple[str, ...]) -> Any:
+    current: Any = data
+    for key in path:
+        if not isinstance(current, dict) or key not in current:
+            return None
+        current = current[key]
+    return current
+
+
+def _validate_dataset_root(dataset_root: Path) -> None:
+    info_path = dataset_root / "meta/info.json"
+    if not info_path.is_file():
+        raise FileNotFoundError(info_path)
+    info = _load_json(info_path)
+
+    mismatches: list[str] = []
+    if dataset_root.name != EXPECTED_DATASET_REPO_ID:
+        mismatches.append(f"dataset folder {dataset_root.name!r} != {EXPECTED_DATASET_REPO_ID!r}")
+    if info.get("codebase_version") != "v3.0":
+        mismatches.append(f"codebase_version {info.get('codebase_version')!r} != 'v3.0'")
+
+    features = info.get("features", {})
+    expected_features = {
+        "action": [6],
+        "action.end_effector_pose": [7],
+        "observation.state": [6],
+        "observation.end_effector_pose": [7],
+        "observation.camera_poses.front": [7],
+        "observation.camera_poses.wrist": [7],
+        "observation.images.front": [360, 640, 3],
+        "observation.images.wrist": [360, 640, 3],
+    }
+    for key, shape in expected_features.items():
+        actual = features.get(key, {}).get("shape")
+        if actual != shape:
+            mismatches.append(f"feature {key} shape {actual!r} != {shape!r}")
+
+    tasks_path = dataset_root / "meta/tasks.parquet"
+    if not tasks_path.is_file():
+        mismatches.append(f"missing dataset tasks file {tasks_path}")
+    else:
+        tasks_df = pd.read_parquet(tasks_path)
+        if "task" in tasks_df.columns:
+            tasks = sorted({str(task) for task in tasks_df["task"].dropna().tolist()})
+        elif tasks_df.index.name == "task":
+            tasks = sorted({str(task) for task in tasks_df.index.dropna().tolist()})
+        else:
+            tasks = []
+            mismatches.append(
+                f"tasks.parquet has neither a 'task' column nor a task index: columns={list(tasks_df.columns)!r}, index={tasks_df.index.name!r}"
+            )
+        if tasks and tasks != [PROMPT]:
+            mismatches.append(f"dataset tasks {tasks!r} != eval prompt {[PROMPT]!r}")
+
+    if mismatches:
+        raise ValueError("Dataset does not match the expected screwdriver_so101 training data:\n- " + "\n- ".join(mismatches))
+    _log(f"dataset metadata validated: {dataset_root}")
+
+
+def _validate_checkpoint_training_config(checkpoint_dir: Path, dataset_root: Path, action_horizon: int) -> None:
+    train_config_path = checkpoint_dir / "train_config.json"
+    adapter_config_path = checkpoint_dir / "adapter_config.json"
+    preprocessor_path = checkpoint_dir / "policy_preprocessor.json"
+    postprocessor_path = checkpoint_dir / "policy_postprocessor.json"
+
+    for path in (train_config_path, adapter_config_path, preprocessor_path, postprocessor_path):
+        if not path.is_file():
+            raise FileNotFoundError(path)
+
+    train_cfg = _load_json(train_config_path)
+    adapter_cfg = _load_json(adapter_config_path)
+    preprocessor_cfg = _load_json(preprocessor_path)
+    postprocessor_cfg = _load_json(postprocessor_path)
+
+    mismatches: list[str] = []
+    for path, expected in EXPECTED_TRAINING_CONFIG.items():
+        actual = _nested_get(train_cfg, path)
+        if actual != expected:
+            mismatches.append(f"{'.'.join(path)} {actual!r} != {expected!r}")
+
+    dataset_repo_id = _nested_get(train_cfg, ("dataset", "repo_id"))
+    if dataset_repo_id != EXPECTED_DATASET_REPO_ID:
+        mismatches.append(f"dataset.repo_id {dataset_repo_id!r} != {EXPECTED_DATASET_REPO_ID!r}")
+    if dataset_root.name != dataset_repo_id:
+        mismatches.append(f"dataset root folder {dataset_root.name!r} != train_config dataset.repo_id {dataset_repo_id!r}")
+
+    chunk_size = _nested_get(train_cfg, ("policy", "chunk_size"))
+    n_action_steps = _nested_get(train_cfg, ("policy", "n_action_steps"))
+    if action_horizon != chunk_size:
+        mismatches.append(f"eval action_horizon {action_horizon!r} != trained policy.chunk_size {chunk_size!r}")
+    if n_action_steps != chunk_size:
+        mismatches.append(f"policy.n_action_steps {n_action_steps!r} != policy.chunk_size {chunk_size!r}")
+
+    if adapter_cfg.get("base_model_name_or_path") != "lerobot/pi05_base":
+        mismatches.append(f"adapter base_model_name_or_path {adapter_cfg.get('base_model_name_or_path')!r} != 'lerobot/pi05_base'")
+    if adapter_cfg.get("peft_type") != "LORA":
+        mismatches.append(f"adapter peft_type {adapter_cfg.get('peft_type')!r} != 'LORA'")
+
+    expected_norm = EXPECTED_TRAINING_CONFIG[("policy", "normalization_mapping")]
+    for name, cfg in (("policy_preprocessor", preprocessor_cfg), ("policy_postprocessor", postprocessor_cfg)):
+        normalizer_steps = [step for step in cfg.get("steps", []) if step.get("registry_name") in {"normalizer_processor", "unnormalizer_processor"}]
+        if not normalizer_steps:
+            mismatches.append(f"{name} has no normalizer/unnormalizer step")
+            continue
+        actual_norm = normalizer_steps[0].get("config", {}).get("norm_map")
+        if actual_norm != expected_norm:
+            mismatches.append(f"{name} norm_map {actual_norm!r} != {expected_norm!r}")
+
+    if mismatches:
+        raise ValueError("Checkpoint/eval parameters do not match the requested training configuration:\n- " + "\n- ".join(mismatches))
+    _log(f"checkpoint training config validated: {train_config_path}")
+
+
 def _load_policy(checkpoint_dir: Path, device: str = "cuda"):
-    """Load lerobot pi05 LoRA policy and preprocessor from a pretrained_model/ directory."""
+    """Load lerobot pi05 LoRA policy and saved processors from a pretrained_model/ directory."""
     import torch
     from peft import PeftConfig, PeftModel
-    from safetensors import safe_open
+    from lerobot.configs.policies import PreTrainedConfig
     from lerobot.policies.pi05.modeling_pi05 import PI05Policy
     import lerobot.policies.pi05.processor_pi05  # noqa: F401 - registers PI0.5 processor steps
+    from lerobot.processor.converters import policy_action_to_transition, transition_to_policy_action
     from lerobot.processor.pipeline import DataProcessorPipeline
-
-    from lerobot.configs.policies import PreTrainedConfig
 
     _log(f"Loading LoRA adapter config from {checkpoint_dir}")
     peft_config = PeftConfig.from_pretrained(str(checkpoint_dir))
     _log(f"Base model: {peft_config.base_model_name_or_path}")
 
-    # Load policy config from our checkpoint (has our camera names, not pi05_base defaults)
+    # Load policy config from our checkpoint so camera names, dtype, compile, and checkpointing
+    # match training. Only the runtime device is overridden by the eval CLI.
     policy_config = PreTrainedConfig.from_pretrained(str(checkpoint_dir))
+    policy_config.device = device
     policy = PI05Policy.from_pretrained(peft_config.base_model_name_or_path, config=policy_config)
     policy = PeftModel.from_pretrained(policy, str(checkpoint_dir), config=peft_config)
-    # Cast after PEFT wrapping so LoRA adapters + base are both bfloat16
-    policy = policy.to(device=device, dtype=torch.bfloat16)
+
+    dtype = getattr(torch, policy_config.dtype)
+    policy = policy.to(device=device, dtype=dtype)
     policy.eval()
     _log(f"Policy dtype: {next(policy.parameters()).dtype}")
     _log("Policy loaded")
@@ -234,32 +408,36 @@ def _load_policy(checkpoint_dir: Path, device: str = "cuda"):
     )
     _log("Preprocessor loaded")
 
-    stats_file = checkpoint_dir / "policy_postprocessor_step_0_unnormalizer_processor.safetensors"
-    with safe_open(str(stats_file), framework="pt") as f:
-        action_mean = f.get_tensor("action.mean").float().numpy()
-        action_std = f.get_tensor("action.std").float().numpy()
-    _log(f"Action stats loaded: mean={np.round(action_mean, 4)}, std={np.round(action_std, 4)}")
+    postprocessor = DataProcessorPipeline.from_pretrained(
+        str(checkpoint_dir),
+        config_filename="policy_postprocessor.json",
+        to_transition=policy_action_to_transition,
+        to_output=transition_to_policy_action,
+        overrides={"device_processor": {"device": "cpu"}},
+    )
+    _log("Postprocessor loaded")
 
-    return policy, preprocessor, action_mean, action_std
+    return policy, preprocessor, postprocessor
 
 
 def _policy_delta(
     policy,
     preprocessor,
-    action_mean: np.ndarray,
-    action_std: np.ndarray,
+    postprocessor,
     ep: EpisodeData,
     step: int,
     horizon: int,
     device: str,
 ) -> np.ndarray:
-    """Run policy and return achieved-delta actions: relative for joints 0-4, absolute for gripper."""
+    """Run policy and return commanded-delta actions: policy_target - current_state for joints 0-4, gripper absolute."""
     import torch
 
     state = ep.states[step, :6].astype(np.float32)
     global_frame = int(ep.global_indices[step])
-    front_img = _load_frame(ep.front_video, global_frame)   # [H, W, C] uint8
-    wrist_img = _load_frame(ep.wrist_video, global_frame)   # [H, W, C] uint8
+    front_video, front_frame = _resolve_video_frame(ep.front_videos, global_frame)
+    wrist_video, wrist_frame = _resolve_video_frame(ep.wrist_videos, global_frame)
+    front_img = _load_frame(front_video, front_frame)   # [H, W, C] uint8
+    wrist_img = _load_frame(wrist_video, wrist_frame)   # [H, W, C] uint8
 
     # Build single-sample batch (preprocessor's to_batch_processor will add batch dim)
     batch = {
@@ -283,10 +461,8 @@ def _policy_delta(
         # Returns [1, chunk_size, action_dim] in MEAN_STD normalized space
         actions_norm = policy.predict_action_chunk(processed)
 
-    actions_norm = actions_norm[0, :horizon].cpu().float().numpy()  # [horizon, 6]
-
-    # Unnormalize from MEAN_STD → absolute target positions
-    actions = actions_norm * action_std[:6] + action_mean[:6]
+    # Use the saved policy_postprocessor.json from training to unnormalize MEAN_STD actions.
+    actions = postprocessor(actions_norm[:, :horizon])[0].cpu().float().numpy()
 
     # Convert to delta space to match GT (action - current_state for joints 0-4, gripper stays absolute)
     actions[:, :5] -= state[:5].reshape(1, 5)
@@ -349,8 +525,7 @@ def _eval_joint(
     episodes_by_index: dict[int, EpisodeData],
     policy,
     preprocessor,
-    action_mean: np.ndarray,
-    action_std: np.ndarray,
+    postprocessor,
     min_values: np.ndarray,
     max_values: np.ndarray,
     args: argparse.Namespace,
@@ -381,8 +556,9 @@ def _eval_joint(
 
         for idx, step in enumerate(steps, start=1):
             gt = _gt_chunk(ep, step, args.action_horizon)
-            pred = _policy_delta(policy, preprocessor, action_mean, action_std,
-                                  ep, step, args.action_horizon, args.device)
+            pred = _policy_delta(
+                policy, preprocessor, postprocessor, ep, step, args.action_horizon, args.device
+            )
             pred_steps.append(pred)
             gt_steps.append(gt)
             if idx == 1 or idx == len(steps) or idx % 10 == 0:
@@ -393,8 +569,8 @@ def _eval_joint(
         gt_arr = np.asarray(gt_steps, dtype=np.float32)
         summary = batch_eval._summarize(pred_arr, gt_arr, args.sign_eps, min_values, max_values)
         summary["action_convention"] = (
-            "lerobot LoRA achieved-delta eval: joints 0-4 compare policy target-current "
-            "against stored future achieved state-current; gripper remains absolute."
+            "lerobot LoRA commanded-delta eval: joints 0-4 compare policy target-current "
+            "against stored commanded target-current; gripper remains absolute."
         )
         focus = _joint_focus(summary)
         _print_focus(f"episode_{ep.index:06d} focus", focus)
@@ -418,8 +594,8 @@ def _eval_joint(
         aggregate_pred, aggregate_gt, args.sign_eps, min_values, max_values
     )
     aggregate_summary["action_convention"] = (
-        "lerobot LoRA achieved-delta eval: joints 0-4 compare policy target-current "
-        "against stored future achieved state-current; gripper remains absolute."
+        "lerobot LoRA commanded-delta eval: joints 0-4 compare policy target-current "
+        "against stored commanded target-current; gripper remains absolute."
     )
     aggregate_focus = _joint_focus(aggregate_summary)
     _print_focus(f"j{joint} aggregate focus", aggregate_focus)
@@ -495,6 +671,9 @@ def main() -> int:
     if not (args.dataset_root / "data").is_dir():
         raise FileNotFoundError(args.dataset_root / "data")
 
+    _validate_dataset_root(args.dataset_root)
+    _validate_checkpoint_training_config(args.checkpoint, args.dataset_root, args.action_horizon)
+
     if args.label is None:
         run_name = args.checkpoint.parents[1].name
         step = args.checkpoint.parent.name
@@ -507,26 +686,26 @@ def main() -> int:
     label_dir.mkdir(parents=True, exist_ok=True)
 
     _log(f"loaded {len(episodes)} episodes from {args.dataset_root}")
-    _log("computing achieved-delta action bounds")
+    _log("computing commanded-delta action bounds")
     min_values, max_values = _action_bounds(episodes, args.action_horizon)
-    (label_dir / "achieved_delta_action_bounds.json").write_text(
+    (label_dir / "commanded_delta_action_bounds.json").write_text(
         json.dumps({"min": min_values.tolist(), "max": max_values.tolist()}, indent=2),
         encoding="utf-8",
     )
 
     _log(f"loading lerobot LoRA policy from {args.checkpoint}")
-    policy, preprocessor, action_mean, action_std = _load_policy(args.checkpoint, args.device)
+    policy, preprocessor, postprocessor = _load_policy(args.checkpoint, args.device)
 
     reports: dict[int, Path] = {}
     for joint in joints:
         output_dir = label_dir / f"broad_j{joint}_high_motion_top{args.top_k}"
         output_dir.mkdir(parents=True, exist_ok=True)
-        _log(f"j{joint}: finding high-motion windows from achieved deltas")
+        _log(f"j{joint}: finding high-motion windows from commanded deltas")
         windows = _find_windows(episodes, joint, args, output_dir)
         _log(f"j{joint}: running focused eval on {len(windows)} windows")
         reports[joint] = _eval_joint(
             joint, output_dir, windows, episodes_by_index,
-            policy, preprocessor, action_mean, action_std,
+            policy, preprocessor, postprocessor,
             min_values, max_values, args,
         )
 
