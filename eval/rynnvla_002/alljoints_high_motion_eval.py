@@ -12,10 +12,10 @@ from pathlib import Path
 from typing import Any
 
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
-EVAL_SCRIPT = REPO / "models/rynnvla-002/eval/model_eval/focused_sign_eval.py"
-FIND_WINDOWS_SCRIPT = REPO / "models/rynnvla-002/eval/data_analysis/find_high_motion_windows.py"
+EVAL_SCRIPT = REPO / "eval/rynnvla_002/focused_sign_eval.py"
+FIND_WINDOWS_SCRIPT = REPO / "eval/rynnvla_002/data_analysis/find_high_motion_windows.py"
 TASK_DIR = REPO / "my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup"
 PYTHON = "/home/caroline/miniconda3/envs/rynnvla002/bin/python"
 RYNNVLA_REPO = str(REPO / "vendor/rynnvla-002/rynnvla-002")

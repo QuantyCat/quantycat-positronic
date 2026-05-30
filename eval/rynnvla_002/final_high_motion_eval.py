@@ -9,10 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 OUT_DIR = REPO / "my_data/training_pipeline/fine_tuning/screwdriver_so101_fresh_h1j3_weighted_scratch"
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
-EVAL_SCRIPT = REPO / "models/rynnvla-002/eval/model_eval/focused_sign_eval.py"
+EVAL_SCRIPT = REPO / "eval/rynnvla_002/focused_sign_eval.py"
 CASE_SOURCE = (
     REPO
     / "eval_output/screwdriver_so101/model_eval/fresh_h1j3_weighted_epoch14/"

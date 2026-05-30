@@ -252,11 +252,13 @@ python3 models/rynnvla-002/inference/inference.py
 source models/rynnvla-002/run_scripts/setup.sh
 bash models/rynnvla-002/run_scripts/data_analysis.sh
 bash models/rynnvla-002/run_scripts/model_eval.sh \
-  --episode models/rynnvla-002/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
-  --episode models/rynnvla-002/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000000
+  --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000025 \
+  --episode my_data/training_pipeline/training_data/Put_the_screwdriver_into_the_cup/episode_000000
 ```
 
 Outputs go to `eval_output/screwdriver_so101/data_analysis/` and `eval_output/screwdriver_so101/model_eval/`.
+
+Eval scripts live under `eval/rynnvla_002/`. The run_scripts above are thin wrappers that call them.
 
 ### Forked RynnVLA-002 changes to remember
 

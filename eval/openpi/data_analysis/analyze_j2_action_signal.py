@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 
 
-REPO = Path(__file__).resolve().parents[4]
+REPO = Path(__file__).resolve().parents[3]
 TASK_DIR = (
     REPO
     / "models/rynnvla-002/training_pipeline/training_data/Put_the_screwdriver_into_the_cup"

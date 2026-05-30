@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 
-REPO = Path(__file__).resolve().parents[1]
-EVAL_SCRIPT = REPO / "scripts/alljoints_high_motion_eval.py"
+REPO = Path(__file__).resolve().parents[2]
+EVAL_SCRIPT = REPO / "eval/rynnvla_002/alljoints_high_motion_eval.py"
 PYTHON = "/home/caroline/miniconda3/envs/rynnvla002/bin/python"
 
 

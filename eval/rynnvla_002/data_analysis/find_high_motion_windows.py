@@ -30,7 +30,7 @@ from typing import Any
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "model_eval"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import episode_step_eval as step_eval
 
 _DEFAULT_CONFIG = "models/rynnvla-002/config.yaml"

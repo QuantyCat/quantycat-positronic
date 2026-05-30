@@ -47,19 +47,19 @@ REPO_ROOT="$(cd "$MODEL_ROOT/../.." && pwd)"
 cd "$REPO_ROOT"
 
 echo "--- Step 1: Action stats audit ---"
-$PYTHON "$MODEL_ROOT/eval/data_analysis/action_stats_audit.py"
+$PYTHON "$REPO_ROOT/eval/rynnvla_002/data_analysis/action_stats_audit.py"
 
 echo ""
 echo "--- Step 2: Episode motion report ---"
-$PYTHON "$MODEL_ROOT/eval/data_analysis/action_episode_motion_report.py"
+$PYTHON "$REPO_ROOT/eval/rynnvla_002/data_analysis/action_episode_motion_report.py"
 
 echo ""
 echo "--- Step 3: Low-motion distribution plot ---"
-$PYTHON "$MODEL_ROOT/eval/data_analysis/plot_low_motion_distribution.py"
+$PYTHON "$REPO_ROOT/eval/rynnvla_002/data_analysis/plot_low_motion_distribution.py"
 
 echo ""
 echo "--- Step 4: High-motion eval windows ---"
-$PYTHON "$MODEL_ROOT/eval/data_analysis/find_high_motion_windows.py" \
+$PYTHON "$REPO_ROOT/eval/rynnvla_002/data_analysis/find_high_motion_windows.py" \
     --task-dir "$TASK_DIR" \
     --top-k "$TOP_K" \
     $CKPT_ARG

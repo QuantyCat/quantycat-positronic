@@ -15,7 +15,7 @@ import numpy as np
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[2]
 
 
 def _parse_args() -> argparse.Namespace:

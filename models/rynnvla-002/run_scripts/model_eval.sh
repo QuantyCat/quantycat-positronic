@@ -63,7 +63,7 @@ cd "$REPO_ROOT"
 for EPISODE in "${EPISODES[@]}"; do
     echo ""
     echo "--- Evaluating: $(basename "$EPISODE") ---"
-    $PYTHON "$MODEL_ROOT/eval/model_eval/episode_batch_eval.py" \
+    $PYTHON "$REPO_ROOT/eval/rynnvla_002/episode_batch_eval.py" \
         --episode "$EPISODE" \
         --positronic-config "$MODEL_ROOT/config.yaml" \
         --start-step "$START_STEP" \

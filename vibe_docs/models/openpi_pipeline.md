@@ -329,12 +329,12 @@ bash scripts/run_openpi.sh
 
 ### Self-Start Workaround
 
-From the default rest pose the model may predict near-hold actions. Pre-position
-the arm to an in-trajectory pose before handing control:
+From the default rest pose the model may predict near-hold actions. Move the arm
+to the home pose first, then start inference:
 
 ```bash
 cd ~/quantycat-iron-fleet
-python scripts/test_motors.py --start-pose 4 -85 92 67 6 0.4 --wait 3.0
+bash robots/so101/run_scripts/go_home.sh
 bash scripts/run_openpi.sh
 ```
 
@@ -353,11 +353,14 @@ converts back to live robot units (degrees), and sends the command dictionary.
 
 ### Logs
 
-Each rollout writes to `run_logs/openpi/` inside iron-fleet:
+Each rollout writes to `~/quantycat-data/logs/inference/openpi/` (default; overridden by `QUANTYCAT_DATA_HOME`):
 
 ```text
-~/quantycat-iron-fleet/run_logs/openpi/<timestamp>/deployment_config.json
-~/quantycat-iron-fleet/run_logs/openpi/<timestamp>/rollout.jsonl
+~/quantycat-data/logs/inference/openpi/<timestamp>_<checkpoint>/
+  rollout.jsonl            one JSON line per step: state, target, safety info
+  deployment_config.json   snapshot of the config used
+  rollout_front.mp4        front camera video
+  latest_observation.png   front+wrist side-by-side from last step
 ```
 
 ---

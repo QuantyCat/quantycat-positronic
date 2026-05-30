@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[2]
 OPENPI_REPO = REPO / "vendor/openpi"
 DATASET_ROOT = REPO / "my_data/input_data"
 CHECKPOINT = (

@@ -22,7 +22,7 @@ _N_BENCH  = 20  # calls to record for steady-state stats
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[2]
 
 
 def _resolve_path(root: Path, value: str) -> Path:

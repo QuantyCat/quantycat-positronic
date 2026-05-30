@@ -26,7 +26,7 @@ import pandas as pd
 
 
 REPO = Path(__file__).resolve().parents[3]
-OPENPI_EVAL_DIR = REPO / "models/openpi/eval/model_eval"
+OPENPI_EVAL_DIR = REPO / "eval/openpi"
 DATA_HOME = Path(os.environ.get("QUANTYCAT_DATA_HOME", str(Path.home() / "quantycat-data")))
 DEFAULT_DATASET = DATA_HOME / "datasets/screwdriver_so101"
 DEFAULT_CHECKPOINT = (

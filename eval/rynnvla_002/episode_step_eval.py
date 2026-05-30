@@ -34,7 +34,7 @@ _DEFAULT_CONFIG = "models/rynnvla-002/config.yaml"
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+    return Path(__file__).resolve().parents[2]
 
 
 def _default_rynnvla_repo() -> str:

@@ -180,7 +180,7 @@ vendor/lerobot/.venv/bin/python models/lerobot/eval/lerobot_lora_high_motion_eva
     --checkpoint ~/quantycat-data/checkpoints/lerobot/pi05/<exp-name>/checkpoints/<step>/pretrained_model
 ```
 
-Mirrors `openpi_lerobot_high_motion_eval.py`: selects top-20 high-motion windows per joint,
+Mirrors `eval/openpi/lerobot_high_motion_eval.py`: selects top-20 high-motion windows per joint,
 runs the policy, and computes sign agreement / correlation against ground-truth achieved deltas.
 
 ---

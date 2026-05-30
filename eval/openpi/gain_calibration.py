@@ -15,8 +15,8 @@ from typing import Any
 import numpy as np
 
 
-REPO = Path(__file__).resolve().parents[4]
-EVAL_DIR = REPO / "models/openpi/eval/model_eval"
+REPO = Path(__file__).resolve().parents[2]
+EVAL_DIR = REPO / "eval/openpi"
 NORM_STATS_ROOT = Path.home() / "quantycat-data/norm_stats/openpi"
 DEFAULT_LABEL_DIR = (
     REPO

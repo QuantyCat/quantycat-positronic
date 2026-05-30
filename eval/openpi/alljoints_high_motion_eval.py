@@ -15,12 +15,12 @@ from typing import Any
 import numpy as np
 
 
-REPO = Path(__file__).resolve().parents[4]
+REPO = Path(__file__).resolve().parents[2]
 OPENPI_REPO = REPO / "vendor/openpi"
-EVAL_DIR = REPO / "models/openpi/eval/model_eval"
+EVAL_DIR = REPO / "eval/openpi"
 NORM_STATS_ROOT = Path.home() / "quantycat-data/norm_stats/openpi"
 CONFIG = REPO / "models/rynnvla-002/config.yaml"
-FIND_WINDOWS_SCRIPT = REPO / "models/rynnvla-002/eval/data_analysis/find_high_motion_windows.py"
+FIND_WINDOWS_SCRIPT = REPO / "eval/rynnvla_002/data_analysis/find_high_motion_windows.py"
 TASK_DIR = REPO / "models/rynnvla-002/training_pipeline/training_data/Put_the_screwdriver_into_the_cup"
 RYNN_PYTHON = "/home/caroline/miniconda3/envs/rynnvla002/bin/python"
 DEFAULT_ROOT = REPO / "eval_output/screwdriver_so101/model_eval"

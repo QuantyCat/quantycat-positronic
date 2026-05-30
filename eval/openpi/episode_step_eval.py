@@ -26,7 +26,7 @@ _DEFAULT_CONFIG = "models/openpi/training_config/config.yaml"
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+    return Path(__file__).resolve().parents[2]
 
 
 def _default_rynnvla_repo() -> str:

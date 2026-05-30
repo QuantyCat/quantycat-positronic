@@ -31,8 +31,8 @@ from typing import Any
 import numpy as np
 
 
-REPO = Path(__file__).resolve().parents[4]
-EVAL_DIR = REPO / "models/openpi/eval/model_eval"
+REPO = Path(__file__).resolve().parents[2]
+EVAL_DIR = REPO / "eval/openpi"
 DEFAULT_EVAL_ROOT = REPO / "eval_output/screwdriver_so101/model_eval"
 JOINT_LABELS = ("joint_0", "joint_1", "joint_2", "joint_3", "joint_4", "gripper")
 FOCUS_JOINTS = ("joint_0", "joint_1", "joint_2", "joint_3", "joint_4")
