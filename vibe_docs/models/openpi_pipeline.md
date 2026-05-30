@@ -290,7 +290,7 @@ Notes:
 ### Config File
 
 ```text
-~/quantycat-iron-fleet/configs/openpi_so101.json
+~/quantycat-iron-fleet/robots/so101/openpi_screwdriver.json
 ```
 
 Key defaults (as of 2026-05-23):
