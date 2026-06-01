@@ -53,6 +53,7 @@ HF_LEROBOT_HOME="$DATA_HOME/datasets" \
     --policy.freeze_vision_encoder=false \
     --policy.train_expert_only=false \
     --peft.method_type=LORA \
+    --peft.target_modules='(.*\.gemma_expert\..*\.self_attn\.(q|v)_proj|model\.(state_proj|action_in_proj|action_out_proj|time_mlp_in|time_mlp_out))' \
     --steps=10000 \
     --batch_size=2 \
     --policy.device=cuda \
