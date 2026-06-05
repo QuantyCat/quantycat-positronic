@@ -3,6 +3,7 @@
 #   1. trim_dataset.py   — remove countdown hold + drop bad episodes
 #   2. remove_pauses.py  — remove intra-episode stationary pauses
 #   3. smooth_actions.py — smooth action jitter with Gaussian filter
+#   4. (optional) convert to lerobot v3.0 format via lerobot's official converter
 #
 # Intermediate datasets are written to a temp directory and cleaned up.
 # Only the final cleaned dataset is kept at --dst.
@@ -14,6 +15,12 @@
 #       --trim-frames 165 \
 #       --remove-episodes "45 12" \
 #       --sigma 1.5
+#
+#   # Output as lerobot v3.0 (calls lerobot's official converter):
+#   bash models/preprocessing/pipeline.sh \
+#       --src my_data/input_data \
+#       --dst my_data/clean_data \
+#       --format v3
 #
 # All arguments except --src and --dst are optional.
 
@@ -30,6 +37,7 @@ REMOVE_EPISODES=""
 SPEED_THRESHOLD=0.01
 MIN_PAUSE_FRAMES=15
 SIGMA=1.5
+FORMAT="v2"
 DRY_RUN=false
 
 # Parse arguments
@@ -42,6 +50,7 @@ while [[ $# -gt 0 ]]; do
         --speed-threshold) SPEED_THRESHOLD="$2";  shift 2 ;;
         --min-pause-frames) MIN_PAUSE_FRAMES="$2"; shift 2 ;;
         --sigma)           SIGMA="$2";            shift 2 ;;
+        --format)          FORMAT="$2";           shift 2 ;;
         --dry-run)         DRY_RUN=true;          shift ;;
         *) echo "Unknown argument: $1"; exit 1 ;;
     esac
@@ -81,6 +90,7 @@ echo "  remove-episodes:  ${REMOVE_EPISODES:-none}"
 echo "  speed-threshold:  $SPEED_THRESHOLD rad/frame"
 echo "  min-pause-frames: $MIN_PAUSE_FRAMES"
 echo "  sigma:            $SIGMA"
+echo "  format:           $FORMAT"
 echo "  dry-run:          $DRY_RUN"
 echo "========================================="
 echo ""
@@ -127,6 +137,42 @@ $PYTHON "$SCRIPT_DIR/smooth_actions.py" \
     --src "$STEP2" --dst "$DST" \
     --sigma "$SIGMA"
 echo ""
+
+if [[ "$FORMAT" == "v3" ]]; then
+    LEROBOT_CONVERT="$(dirname "$($PYTHON -c 'import lerobot; print(lerobot.__file__)')")/scripts/convert_dataset_v21_to_v30.py"
+    DST_NAME="$(basename "$DST")"
+    echo "--- Step 4/4: convert to lerobot v3.0 ---"
+    $PYTHON "$LEROBOT_CONVERT" \
+        --repo-id="$DST_NAME" \
+        --root="$DST" \
+        --push-to-hub=false
+    echo ""
+
+    # The official converter omits camera keys from stats.json (pixels aren't in
+    # parquet), but lerobot's factory.py requires them to exist before overwriting
+    # with ImageNet stats. Add placeholder entries for all video-dtype features.
+    $PYTHON - <<'PYEOF'
+import json, sys
+from pathlib import Path
+
+dst = Path("$DST")
+info = json.loads((dst / "meta/info.json").read_text())
+stats_path = dst / "meta/stats.json"
+stats = json.loads(stats_path.read_text()) if stats_path.exists() else {}
+
+placeholder = {"min": [0.0], "max": [1.0], "mean": [0.0], "std": [1.0], "count": [0]}
+added = []
+for key, feat in info.get("features", {}).items():
+    if feat.get("dtype") == "video" and key not in stats:
+        stats[key] = placeholder
+        added.append(key)
+
+if added:
+    stats_path.write_text(json.dumps(stats, indent=2))
+    print(f"Added camera placeholders to stats.json: {added}")
+PYEOF
+    echo ""
+fi
 
 echo "========================================="
 echo "Done → $DST"

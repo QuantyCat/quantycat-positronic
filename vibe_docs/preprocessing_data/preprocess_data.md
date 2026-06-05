@@ -1,6 +1,6 @@
 # Preprocessing Scripts
 
-General-purpose dataset preprocessing tools for LeRobot v2.1 format datasets. Written for SO-101 arm teleoperation recordings but work on any compatible dataset.
+General-purpose dataset preprocessing tools for LeRobot datasets. Written for SO-101 arm teleoperation recordings but work on any compatible dataset. Outputs v2.1 format by default; pass `--format v3` to produce a lerobot 0.5.1-compatible v3.0 dataset.
 
 Scripts live at:
 
@@ -133,12 +133,22 @@ A sigma of 1.5 gives ~12% reduction in arm delta std with minimal trajectory dis
 Use `pipeline.sh` to run all three steps in one command and produce a single clean output dataset. Intermediate files are cleaned up automatically.
 
 ```bash
+# v2.1 output (default):
 bash preprocessing_data/pipeline.sh \
     --src my_data/input_data \
     --dst my_data/clean_input_data \
     --trim-frames 165 \
     --remove-episodes "45" \
     --sigma 1.5
+
+# v3.0 output (required for lerobot 0.5.1 training):
+bash preprocessing_data/pipeline.sh \
+    --src my_data/input_data \
+    --dst my_data/clean_input_data \
+    --trim-frames 165 \
+    --remove-episodes "45" \
+    --sigma 1.5 \
+    --format v3
 
 # Preview all three steps without writing:
 bash preprocessing_data/pipeline.sh \
@@ -158,7 +168,19 @@ bash preprocessing_data/pipeline.sh \
 | `--speed-threshold` | 0.01 rad/frame | Pause detection threshold |
 | `--min-pause-frames` | 15 | Minimum pause length to remove |
 | `--sigma` | 1.5 | Gaussian smoothing strength |
+| `--format` | v2 | Output format: `v2` (v2.1, one parquet per episode) or `v3` (v3.0, consolidated parquet + full metadata for lerobot 0.5.1) |
 | `--dry-run` | off | Preview all three steps without writing |
+
+### `--format v3`
+
+When `--format v3` is set, after the three preprocessing steps the pipeline runs lerobot's official `convert_dataset_v21_to_v30.py` on the output. This produces the metadata structure lerobot 0.5.1 requires:
+
+- `meta/episodes/chunk-000/file-000.parquet` — episode index with data/video chunk references
+- `meta/stats.json` — per-feature statistics aggregated across all episodes
+- `meta/tasks.parquet` — task definitions
+- `info.json` with `"codebase_version": "v3.0"` and updated path templates
+
+The `--format v3` path requires the lerobot venv to be active or `PYTHON` to be set to the lerobot python binary.
 
 ### Running steps individually
 

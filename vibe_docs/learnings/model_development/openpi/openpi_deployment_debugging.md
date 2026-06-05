@@ -224,8 +224,8 @@ The gripper opens to its full range (~28°) mid-reach at frame ~200 — consiste
 **Wrist roll has enormous trajectory variance.**
 During the hold phase, `wrist_roll` is essentially static (std = 0.37°). During the active phase, it ranges across a mean of **84.7°** per episode (max 120.7°), with trajectory std of ~24° — even though every episode *ends* at ≈ −38.5°. The policy has to learn a highly variable wrist_roll arc from visual input, which the visual stream doesn't encode. This is a significant source of multi-modal supervision noise.
 
-**All demonstrations start with the gripper already closed.**
-The gripper is near 0 rad (closed) from frame 0 in all 50 episodes. The demonstrator starts already holding the screwdriver. The training data covers **transport + place only** — there is no pick-up motion in the dataset. A policy retrained from this data cannot grasp from a surface.
+**All demonstrations start with the gripper closed, but this does not mean the screwdriver is already held.**
+The gripper is near 0 rad (closed) from frame 0 in the training episodes, so a simple threshold-based grasp detector reports grasp_frame=0. That detector is misleading for this dataset: the demonstrations start closed, then the robot moves to the screwdriver and uses the gripper during the pickup/place sequence. A fresh per-episode gripper audit on screwdriver_so101_clean_v2 found gripper action ranges of roughly 0.145-0.323 across all 49 episodes, with every episode reaching its max gripper action after frame 50. The training data should therefore be treated as pickup + place data, not transport-only data.
 
 **Episode 12 has a transient glitch at frames 46–53.**
 The leader arm briefly commands shoulder_lift to −97° and snaps back to −100° over 7 frames. Not worth removing, but the actual motion onset is at frame ~200, consistent with other episodes. The first-motion detection reported 46 for this episode, which is a false alarm.

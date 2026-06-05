@@ -5,7 +5,7 @@
 #   bash models/lerobot/run_scripts/training.sh
 #
 # Environment variables:
-#   DATASET_REPO_ID   LeRobot dataset name under HF_LEROBOT_HOME  (default: screwdriver_so101)
+#   DATASET_REPO_ID   LeRobot dataset name under HF_LEROBOT_HOME  (default: screwdriver_so101_clean_v3)
 #   EXP_NAME          W&B / output run name  (default: datestamp_pi05_lerobot)
 #   LEROBOT_VENV      Path to the lerobot venv  (default: vendor/lerobot/.venv)
 
@@ -15,9 +15,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 LEROBOT_VENV="${LEROBOT_VENV:-$REPO/vendor/lerobot/.venv}"
 DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
-DATASET_REPO_ID="${DATASET_REPO_ID:-screwdriver_so101}"
+DATASET_REPO_ID="${DATASET_REPO_ID:-screwdriver_so101_clean_v3}"
 EXP_NAME="${EXP_NAME:-$(TZ=America/Los_Angeles date +%m%d%Y_%H%M)_pi05_lerobot}"
-CHECKPOINT_DIR="$DATA_HOME/checkpoints/lerobot/pi05/$EXP_NAME"
+CHECKPOINT_DIR="$DATA_HOME/checkpoints/lerobot/$EXP_NAME"
 
 if [ ! -d "$LEROBOT_VENV" ]; then
     echo "ERROR: lerobot venv not found at: $LEROBOT_VENV"
@@ -41,12 +41,14 @@ echo "  checkpoints: $CHECKPOINT_DIR"
 echo ""
 
 HF_LEROBOT_HOME="$DATA_HOME/datasets" \
+LEROBOT_VIDEO_BACKEND=pyav \
     "$LEROBOT_BIN" \
     --dataset.repo_id="$DATASET_REPO_ID" \
+    --dataset.episodes="[$(seq -s, 0 43)]" \
     --job_name="$EXP_NAME" \
     --policy.type=pi05 \
     --policy.pretrained_path=lerobot/pi05_base \
-    --policy.normalization_mapping='{"ACTION": "MEAN_STD", "STATE": "MEAN_STD", "VISUAL": "IDENTITY"}' \
+    --policy.normalization_mapping='{"ACTION": "QUANTILES", "STATE": "QUANTILES", "VISUAL": "IDENTITY"}' \
     --policy.dtype=bfloat16 \
     --policy.compile_model=true \
     --policy.gradient_checkpointing=true \

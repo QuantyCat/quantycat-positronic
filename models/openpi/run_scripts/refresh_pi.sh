@@ -31,6 +31,9 @@ fi
 # ── 2. Apply Quantycat patches ────────────────────────────────────────────────
 echo "Applying Quantycat patches"
 cp "$PATCHES_DIR/src/openpi/training/config.py"       "$OPENPI_REPO/src/openpi/training/config.py"
+cp "$PATCHES_DIR/src/quantycat_training_config.py"      "$OPENPI_REPO/src/quantycat_training_config.py"
+mkdir -p "$OPENPI_REPO/src/openpi/policies"
+cp "$PATCHES_DIR/src/openpi/policies/quantycat_policy.py" "$OPENPI_REPO/src/openpi/policies/quantycat_policy.py"
 
 # ── 3. Install dependencies ───────────────────────────────────────────────────
 if command -v uv >/dev/null 2>&1; then
