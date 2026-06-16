@@ -7,13 +7,13 @@
 # Environment variables:
 #   DATASET_REPO_ID   LeRobot dataset name under HF_LEROBOT_HOME  (default: screwdriver_so101_clean_v3)
 #   EXP_NAME          W&B / output run name  (default: datestamp_pi05_lerobot)
-#   LEROBOT_VENV      Path to the lerobot venv  (default: vendor/lerobot/.venv)
+#   LEROBOT_VENV      Path to the lerobot venv  (default: .venvs/lerobot)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-LEROBOT_VENV="${LEROBOT_VENV:-$REPO/vendor/lerobot/.venv}"
+LEROBOT_VENV="${LEROBOT_VENV:-$REPO/.venvs/lerobot}"
 DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
 DATASET_REPO_ID="${DATASET_REPO_ID:-screwdriver_so101_clean_v3}"
 EXP_NAME="${EXP_NAME:-$(TZ=America/Los_Angeles date +%m%d%Y_%H%M)_pi05_lerobot}"

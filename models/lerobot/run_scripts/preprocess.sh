@@ -16,7 +16,7 @@ REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 if [ -f "$REPO/.env" ]; then
     set -a && source "$REPO/.env" && set +a
 fi
-LEROBOT_VENV="${LEROBOT_VENV:-$REPO/vendor/lerobot/.venv}"
+LEROBOT_VENV="${LEROBOT_VENV:-$REPO/.venvs/lerobot}"
 DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
 DATASET_NAME="${DATASET_NAME:-screwdriver_so101_clean_v3}"
 HF_REPO_ID="${HF_REPO_ID:-cshourab/screwdriver_so101_clean_v3}"

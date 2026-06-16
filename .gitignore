@@ -1,7 +1,7 @@
 # vendor/openpi is a plain clone managed by refresh_pi.sh, not a submodule.
 vendor/openpi/
-# vendor/lerobot/.venv is managed by models/lerobot/run_scripts/setup.sh
-vendor/lerobot/
+# Robot venvs (managed by models/<robot>/run_scripts/setup.sh)
+.venvs/
 
 # Zip files
 *.zip

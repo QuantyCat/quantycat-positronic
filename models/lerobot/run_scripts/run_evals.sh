@@ -10,14 +10,14 @@
 #   CHECKPOINT     Path to a run dir, checkpoint dir, or pretrained_model dir
 #   DATASET_ROOT   LeRobot dataset root  (default: $DATA_HOME/datasets/screwdriver_so101_clean_v3)
 #   DATA_HOME      Quantycat data root   (default: $HOME/quantycat-data)
-#   LEROBOT_VENV   LeRobot venv path     (default: vendor/lerobot/.venv)
+#   LEROBOT_VENV   LeRobot venv path     (default: .venvs/lerobot)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
-LEROBOT_VENV="${LEROBOT_VENV:-$REPO/vendor/lerobot/.venv}"
+LEROBOT_VENV="${LEROBOT_VENV:-$REPO/.venvs/lerobot}"
 PYTHON="$LEROBOT_VENV/bin/python"
 EVAL_SCRIPT="$REPO/models/lerobot/eval/relative_eval.py"
 DATASET_ROOT="${DATASET_ROOT:-$DATA_HOME/datasets/screwdriver_so101_clean_v3}"

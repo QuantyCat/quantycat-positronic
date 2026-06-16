@@ -5,13 +5,13 @@
 #   bash models/lerobot/run_scripts/setup.sh
 #
 # Environment variables:
-#   LEROBOT_VENV   Where to create the venv  (default: vendor/lerobot/.venv)
+#   LEROBOT_VENV   Where to create the venv  (default: .venvs/lerobot)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-LEROBOT_VENV="${LEROBOT_VENV:-$REPO/vendor/lerobot/.venv}"
+LEROBOT_VENV="${LEROBOT_VENV:-$REPO/.venvs/lerobot}"
 
 if command -v uv >/dev/null 2>&1; then
     UV_CMD=(uv)
@@ -32,7 +32,7 @@ else
 fi
 
 echo "Creating lerobot venv at: $LEROBOT_VENV"
-mkdir -p "$(dirname "$LEROBOT_VENV")"
+mkdir -p "$REPO/.venvs"
 "${UV_CMD[@]}" venv "$LEROBOT_VENV" --python 3.12
 
 echo "Installing lerobot[pi] from git"

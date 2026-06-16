@@ -6,7 +6,7 @@ instead of an openpi checkpoint. Action convention is identical: joints 0-4 are
 target-current deltas, gripper remains absolute.
 
 Run with the lerobot venv:
-    vendor/lerobot/.venv/bin/python eval/lerobot/lerobot_lora_high_motion_eval.py \
+    .venvs/lerobot/bin/python eval/lerobot/lerobot_lora_high_motion_eval.py \
         --checkpoint ~/quantycat-data/checkpoints/lerobot/<run>/checkpoints/<step>/pretrained_model
 """
 
