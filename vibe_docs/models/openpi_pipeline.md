@@ -54,7 +54,7 @@ bash models/openpi/run_scripts/setup.sh
 bash models/openpi/run_scripts/preprocess.sh
 
 # 3. Train.
-bash models/openpi/run_scripts/training.sh
+bash models/openpi/run_scripts/train.sh
 ```
 
 Use `tmux` for training so it survives disconnects:
@@ -62,7 +62,7 @@ Use `tmux` for training so it survives disconnects:
 ```bash
 tmux new -s openpi_train
 cd /home/caroline/quantycat-positronic
-bash models/openpi/run_scripts/training.sh
+bash models/openpi/run_scripts/train.sh
 ```
 
 ---
@@ -221,7 +221,7 @@ Expected output:
 ### 3. Training
 
 ```bash
-bash models/openpi/run_scripts/training.sh
+bash models/openpi/run_scripts/train.sh
 ```
 
 This runs:
@@ -457,7 +457,7 @@ bash models/openpi/run_scripts/setup.sh
 bash models/openpi/run_scripts/preprocess.sh
 
 # 3. Train.
-bash models/openpi/run_scripts/training.sh
+bash models/openpi/run_scripts/train.sh
 
 # --- Inference (in quantycat-iron-fleet) ---
 cd /home/caroline/quantycat-iron-fleet

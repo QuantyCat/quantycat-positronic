@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Fine-tune pi05 on the Quantycat SO-101 screwdriver dataset.
+# Fine-tune pi05 on a Quantycat SO-101 dataset.
 #
 # Usage from the repo root:
-#   bash models/openpi/run_scripts/training.sh
+#   bash models/openpi/run_scripts/train.sh
 #
 # Extra arguments are forwarded to scripts/train.py, e.g. to point the
 # dataset-less pi05_quantycat_template config at a real dataset:
-#   bash models/openpi/run_scripts/training.sh --data.repo-id=<dataset>
+#   bash models/openpi/run_scripts/train.sh --data.repo-id=<dataset>
 
 set -euo pipefail
 
