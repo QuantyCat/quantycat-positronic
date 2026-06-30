@@ -1,8 +1,15 @@
-"""Quantycat SO-101 screwdriver fine-tuning configs for openpi/pi0.
+"""Quantycat SO-101 fine-tuning configs for openpi/pi0.
 
 Dataset discovery uses HF_LEROBOT_HOME (set by run scripts to
 $QUANTYCAT_DATA_HOME/datasets). Norm stats are loaded directly from the
 LeRobot dataset's meta/stats.json (populated by augment_dataset_quantile_stats).
+
+No real dataset is registered by default, only a template config
+(pi05_quantycat_template). For a one-off dataset, override --data.repo-id
+(and --data.stats-repo-id if needed) on the template via the CLI rather than
+adding a new entry here. Only add a _quantycat_train_config(...) call below
+once a dataset is a stable, recurring recipe worth keeping registered
+permanently.
 """
 
 import json
@@ -110,17 +117,10 @@ def get_quantycat_configs():
                 "actions": _to_norm_stats(stats["action"]),
             }
 
-    _lora_freeze = pi0_config.Pi0Config(
-        pi05=True,
-        action_horizon=50,
-        paligemma_variant="gemma_2b_lora",
-        action_expert_variant="gemma_300m_lora",
-    ).get_freeze_filter()
-
-    def _lora_model():
+    def _lora_model(*, action_horizon: int = 50):
         return pi0_config.Pi0Config(
             pi05=True,
-            action_horizon=50,
+            action_horizon=action_horizon,
             paligemma_variant="gemma_2b_lora",
             action_expert_variant="gemma_300m_lora",
         )
@@ -128,26 +128,63 @@ def get_quantycat_configs():
     _checkpoint_base = os.path.join(_DATA_HOME, "checkpoints", "openpi")
     _pi05_weights = "gs://openpi-assets/checkpoints/pi05_base/params"
 
-    return [
-        #
-        # Stable Quantycat SO-101 screwdriver LoRA fine-tuning config.
-        #
-        # Dataset paths resolved via HF_LEROBOT_HOME=$QUANTYCAT_DATA_HOME/datasets.
-        # Norm stats loaded from screwdriver_so101_clean_v3/meta/stats.json
-        # (v3 is identical data to v2 but in the format augment_dataset_quantile_stats requires).
-        # Experimental variants are archived under quantycat-research/openpi_experiments/configs/.
-        #
-        TrainConfig(
-            name="pi05_quantycat_lora",
-            model=_lora_model(),
+    def _quantycat_train_config(
+        name: str,
+        *,
+        repo_id: str,
+        stats_repo_id: str | None = None,
+        action_horizon: int = 50,
+        num_train_steps: int = 10_000,
+        num_workers: int = 2,
+        save_interval: int = 1000,
+        keep_period: int | None = 5000,
+    ) -> TrainConfig:
+        """Register one Quantycat SO-101 LoRA fine-tuning config for a dataset.
+
+        repo_id and stats_repo_id are short dataset names resolved via
+        HF_LEROBOT_HOME ($QUANTYCAT_DATA_HOME/datasets). stats_repo_id defaults
+        to repo_id; set it explicitly when the training dataset and the dataset
+        carrying norm stats (meta/stats.json) are different copies.
+        """
+        lora_model = _lora_model(action_horizon=action_horizon)
+        return TrainConfig(
+            name=name,
+            model=lora_model,
             data=LeRobotQuantycatDataConfig(
-                repo_id="screwdriver_so101_clean_v2",
-                stats_repo_id="screwdriver_so101_clean_v3",
+                repo_id=repo_id,
+                stats_repo_id=stats_repo_id,
+                base_config=DataConfig(prompt_from_task=True),
+            ),
+            weight_loader=weight_loaders.CheckpointWeightLoader(_pi05_weights),
+            num_train_steps=num_train_steps,
+            freeze_filter=lora_model.get_freeze_filter(),
+            ema_decay=None,
+            batch_size=4,
+            num_workers=num_workers,
+            save_interval=save_interval,
+            keep_period=keep_period,
+            wandb_enabled=False,
+            checkpoint_base_dir=_checkpoint_base,
+        )
+
+    _template_model = _lora_model()
+
+    return [
+        # No real dataset registered. Override --data.repo-id (and
+        # --data.stats-repo-id if needed) via the CLI to try a dataset, e.g.:
+        #   uv run scripts/train.py pi05_quantycat_template \
+        #       --data.repo-id=<dataset> --exp-name=<name>
+        # Once a dataset is a stable, recurring recipe, give it a permanent
+        # name via _quantycat_train_config(...) instead.
+        TrainConfig(
+            name="pi05_quantycat_template",
+            model=_template_model,
+            data=LeRobotQuantycatDataConfig(
                 base_config=DataConfig(prompt_from_task=True),
             ),
             weight_loader=weight_loaders.CheckpointWeightLoader(_pi05_weights),
             num_train_steps=10_000,
-            freeze_filter=_lora_freeze,
+            freeze_filter=_template_model.get_freeze_filter(),
             ema_decay=None,
             batch_size=4,
             num_workers=2,
