@@ -3,6 +3,10 @@
 #
 # Usage from the repo root:
 #   bash models/openpi/run_scripts/training.sh
+#
+# Extra arguments are forwarded to scripts/train.py, e.g. to point the
+# dataset-less pi05_quantycat_template config at a real dataset:
+#   bash models/openpi/run_scripts/training.sh --data.repo-id=<dataset>
 
 set -euo pipefail
 
@@ -10,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
 OPENPI_VENV="${OPENPI_VENV:-$REPO/.venvs/openpi}"
-CONFIG_NAME="${CONFIG_NAME:-pi05_quantycat_lora}"
+CONFIG_NAME="${CONFIG_NAME:-pi05_quantycat_template}"
 EXP_NAME="${EXP_NAME:-$(TZ=America/Los_Angeles date +%m%d%Y)_pi05_openpi}"
 DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
 CHECKPOINT_DIR="$DATA_HOME/checkpoints/openpi/${CONFIG_NAME}/${EXP_NAME}"
@@ -54,7 +58,7 @@ echo "  log:         $LOG_PATH"
 echo ""
 
 XLA_PYTHON_CLIENT_MEM_FRACTION="${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.9}" \
-    "${UV_CMD[@]}" run scripts/train.py "$CONFIG_NAME" --exp-name="$EXP_NAME" --overwrite 2>&1 | tee "$LOG_PATH"
+    "${UV_CMD[@]}" run scripts/train.py "$CONFIG_NAME" --exp-name="$EXP_NAME" --overwrite "$@" 2>&1 | tee "$LOG_PATH"
 
 echo ""
 echo "Training command finished."

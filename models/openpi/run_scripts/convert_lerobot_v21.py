@@ -179,17 +179,19 @@ def _split_tables(
 
 def _split_videos(source: Path, target: Path, episodes: pd.DataFrame, fps: int) -> None:
     video_keys = ("observation.images.front", "observation.images.wrist")
+    total = len(episodes)
 
     for video_key in video_keys:
         source_video = source / "videos" / video_key / "chunk-000" / "file-000.mp4"
         target_dir = target / "videos" / "chunk-000" / video_key
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        for _, row in episodes.sort_values("episode_index").iterrows():
+        for i, (_, row) in enumerate(episodes.sort_values("episode_index").iterrows(), start=1):
             episode_index = int(row["episode_index"])
             start_frame = int(row.get("source_dataset_from_index", row["dataset_from_index"]))
             end_frame = int(row.get("source_dataset_to_index", row["dataset_to_index"]))
             output_path = target_dir / f"episode_{episode_index:06d}.mp4"
+            print(f"[{video_key}] {i}/{total} episode_{episode_index:06d}", flush=True)
             subprocess.run(
                 [
                     "ffmpeg",
@@ -244,7 +246,10 @@ def main() -> None:
         shutil.rmtree(args.target)
 
     info = json.loads((args.source / "meta" / "info.json").read_text())
+    print(f"Converting {args.source} -> {args.target}")
+    print("Splitting episode tables...")
     episodes = _split_tables(args.source, args.target, args.task_text, _parse_episode_filter(args.episodes), args.renumber)
+    print(f"Splitting {len(episodes)} episodes x 2 cameras into per-episode videos...")
     _split_videos(args.source, args.target, episodes, fps=int(info["fps"]))
     print(f"Created {args.target}")
 
