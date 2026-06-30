@@ -12,7 +12,8 @@ Dataset keys after repacking:
 
 Conventions:
   - state is 6-D absolute joint/gripper position.
-  - action is 6-D absolute joint/gripper target before DeltaActions.
+  - action is a 6-D absolute joint/gripper target. The current stable
+    Quantycat config trains on these absolute targets directly.
   - padding to the model action dimension is intentionally left to openpi's
     ModelTransformFactory, after normalization.
 """

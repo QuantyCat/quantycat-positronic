@@ -2,7 +2,9 @@
 """Run high-motion evals against an OpenPI pi05 LoRA checkpoint.
 
 Mirrors lerobot_lora_high_motion_eval.py but loads an openpi checkpoint.
-Action convention: joints 0-4 are target-current deltas, gripper absolute.
+Training convention: the Quantycat OpenPI policy predicts absolute 6-D
+joint/gripper targets. Eval convention: for motion scoring only, joints 0-4
+are compared as target-current deltas; the gripper remains absolute.
 
 Run with the openpi venv:
     cd vendor/openpi
