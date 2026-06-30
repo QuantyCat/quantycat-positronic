@@ -30,9 +30,6 @@ from openpi import transforms
 
 REAL_ACTION_DIM = 6
 
-# Valid choices for QuantycatInputs.right_wrist_source.
-RIGHT_WRIST_SOURCES = ("wrist", "front", "zeros")
-
 
 def make_quantycat_example() -> dict:
     """Create a random unbatched example for transform smoke tests."""
@@ -57,46 +54,30 @@ def _parse_image(image) -> np.ndarray:
 class QuantycatInputs(transforms.DataTransformFn):
     """Convert Quantycat SO-101 observations to openpi model inputs.
 
-    right_wrist_source controls what fills the right_wrist_0_rgb slot:
-      "wrist"  — duplicate the wrist camera (original behaviour)
-      "front"  — use the front/base camera (Illia-style for LeKiwi)
-      "zeros"  — black image with mask=False (UR5-style: slot absent)
+    The wrist camera is duplicated into the right_wrist_0_rgb slot, since the
+    SO-101 only has front and wrist cameras.
     """
-
-    right_wrist_source: str = "wrist"
 
     def __call__(self, data: dict) -> dict:
         front_image = _parse_image(data["observation/images/front"])
         wrist_image = _parse_image(data["observation/images/wrist"])
-
-        if self.right_wrist_source == "front":
-            right_image = front_image
-            right_mask = np.True_
-        elif self.right_wrist_source == "zeros":
-            right_image = np.zeros_like(front_image)
-            right_mask = np.False_
-        else:
-            right_image = wrist_image
-            right_mask = np.True_
 
         inputs = {
             "state": np.asarray(data["observation/state"], dtype=np.float32),
             "image": {
                 "base_0_rgb": front_image,
                 "left_wrist_0_rgb": wrist_image,
-                "right_wrist_0_rgb": right_image,
+                "right_wrist_0_rgb": wrist_image,
             },
             "image_mask": {
                 "base_0_rgb": np.True_,
                 "left_wrist_0_rgb": np.True_,
-                "right_wrist_0_rgb": right_mask,
+                "right_wrist_0_rgb": np.True_,
             },
         }
 
         if "action" in data:
             inputs["actions"] = np.asarray(data["action"], dtype=np.float32)
-        elif "actions" in data:
-            inputs["actions"] = np.asarray(data["actions"], dtype=np.float32)
         if "prompt" in data:
             inputs["prompt"] = data["prompt"]
 

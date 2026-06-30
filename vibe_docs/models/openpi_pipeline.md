@@ -17,8 +17,8 @@ folders and no pretokenization step.
     meta/*.json*
         ↓  pipeline.sh (models/preprocessing_data/)
 ~/quantycat-data/datasets/screwdriver_so101/clean/ (trimmed, pauses removed, smoothed)
-        ↓  refresh_pi.sh  (clones upstream openpi + applies patches + uv sync)
-vendor/openpi/.venv                                (uv-managed openpi environment)
+        ↓  setup.sh  (clones upstream openpi + applies patches + uv sync)
+.venvs/openpi                                      (uv-managed openpi environment)
         ↓  preprocess.sh
 ~/quantycat-data/norm_stats/openpi/pi05_quantycat_lora/norm_stats.json
         ↓  training.sh
@@ -48,7 +48,7 @@ bash models/preprocessing_data/pipeline.sh \
     --sigma 1.5
 
 # 1. Clone upstream openpi, apply patches, and install (once per machine).
-bash models/openpi/run_scripts/refresh_pi.sh
+bash models/openpi/run_scripts/setup.sh
 
 # 2. Compute normalization stats.
 bash models/openpi/run_scripts/preprocess.sh
@@ -139,15 +139,15 @@ See `models/preprocessing_data/README.md` for per-script documentation and thres
 
 ## What Was Added To OpenPI
 
-`vendor/openpi` is **not** a fork — `refresh_pi.sh` clones the official upstream repo
-(`Physical-Intelligence/openpi`) and copies three patch files on top of it.
+`vendor/openpi` is **not** a fork — `setup.sh` clones the official upstream repo
+(`Physical-Intelligence/openpi`) and copies the patch files on top of it.
 The patch files live in this repo at:
 
 ```text
 models/openpi/vendor_patches/
-  src/openpi/training/config.py       ← Quantycat TrainConfigs + LeRobotQuantycatDataConfig
-  src/openpi/training/data_loader.py  ← HuggingFace List-feature compat shim
-  scripts/compute_norm_stats.py       ← output-path fix for non-HF repo_ids
+  src/openpi/training/config.py             ← Quantycat TrainConfigs + LeRobotQuantycatDataConfig
+  src/quantycat_training_config.py          ← Quantycat training config helpers
+  src/openpi/policies/quantycat_policy.py   ← SO-101 policy transform
 ```
 
 Summary of changes in each file:
@@ -158,20 +158,8 @@ Summary of changes in each file:
   `QUANTYCAT_DATA_HOME`. Uses `make_bool_mask(5, -1)`: joints 0–4 as delta targets,
   gripper (dim 5) stays absolute.
 
-- **`data_loader.py`** — 11-line compat shim: aliases `_type: "List"` → `datasets.Sequence`
-  so LeRobot v2.1 parquet metadata works with OpenPI's pinned `datasets==3.6.0`.
-
-- **`compute_norm_stats.py`** — Output path uses `asset_id` (not `repo_id`) so stats land in
-  `$QUANTYCAT_DATA_HOME/norm_stats/openpi/<asset_id>/norm_stats.json` instead of
-  inside the dataset directory.
-
-The SO-101 policy transform (`quantycat_policy.py`) is **not** patched into openpi — it lives at:
-
-```text
-models/openpi/training_config/quantycat_policy.py
-```
-
-and is injected via `PYTHONPATH` by `preprocess.sh` and `training.sh`.
+- **`quantycat_policy.py`** — SO-101 policy transform, copied into
+  `vendor/openpi/src/openpi/policies/quantycat_policy.py` by `setup.sh`.
 
 ---
 
@@ -180,14 +168,14 @@ and is injected via `PYTHONPATH` by `preprocess.sh` and `training.sh`.
 ### 1. Refresh / Setup
 
 ```bash
-bash models/openpi/run_scripts/refresh_pi.sh
+bash models/openpi/run_scripts/setup.sh
 ```
 
 What it does:
 
 1. Clones `Physical-Intelligence/openpi` (or pulls latest if already cloned) into `vendor/openpi`.
-2. Copies the three patch files from `models/openpi/vendor_patches/` on top.
-3. Runs `GIT_LFS_SKIP_SMUDGE=1 uv sync` to install dependencies.
+2. Copies the patch files from `models/openpi/vendor_patches/` on top.
+3. Runs `GIT_LFS_SKIP_SMUDGE=1 uv sync` and `uv pip install -e .` to install dependencies into `.venvs/openpi`.
 
 Environment variable overrides:
 
@@ -195,7 +183,8 @@ Environment variable overrides:
 |---|---|---|
 | `OPENPI_UPSTREAM` | `https://github.com/Physical-Intelligence/openpi` | Upstream repo URL |
 | `OPENPI_REF` | `main` | Branch, tag, or commit to pin |
-| `OPENPI_REPO` | `vendor/openpi` | Clone destination |
+| `OPENPI_REPO` | `vendor/openpi` | Clone destination (source only — not the venv) |
+| `OPENPI_VENV` | `.venvs/openpi` | Where the uv-managed environment lives |
 
 If `uv` is missing:
 
@@ -204,10 +193,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source "$HOME/.local/bin/env"
 ```
 
-Run `refresh_pi.sh` again whenever:
+Run `setup.sh` again whenever:
 - Setting up a new machine.
 - Pulling a newer upstream openpi version (`OPENPI_REF=<tag>`).
 - The patch files in `vendor_patches/` have changed.
+- You want a clean reinstall of `.venvs/openpi`.
 
 ### 2. Preprocess / Norm Stats
 
@@ -418,27 +408,22 @@ Current experiment:
 
 ### HuggingFace `List` Feature Error
 
-If norm stats fails with:
+This was previously patched in `vendor_patches/src/openpi/training/data_loader.py`, but
+testing showed it's data-dependent — `screwdriver_so101_clean_v2` loads fine without it —
+so the patch was dropped. If a future dataset's parquet metadata declares a `List`-typed
+column and you hit:
 
 ```text
 ValueError: Feature type 'List' not found
 ```
 
-the fix is in `models/openpi/vendor_patches/src/openpi/training/data_loader.py`
-and is applied to `vendor/openpi` by `refresh_pi.sh`.
-It aliases LeRobot v2.1 parquet metadata `_type: "List"` to `datasets.Sequence`.
-
-### Norm Stats Saved Into `input_data`
-
-OpenPI's original `compute_norm_stats.py` used:
+the dataset's HuggingFace `datasets` schema is using a feature type that predates
+OpenPI's pinned `datasets==3.6.0`. Fix by aliasing it before loading:
 
 ```python
-output_path = config.assets_dirs / data_config.repo_id
+import datasets.features.features as _hf_features
+_hf_features._FEATURE_TYPES["List"] = _hf_features.Sequence
 ```
-
-With an absolute local `repo_id`, that accidentally resolved into `my_data/input_data`.
-Patched in `models/openpi/vendor_patches/scripts/compute_norm_stats.py` so stats write to
-`$QUANTYCAT_DATA_HOME/norm_stats/openpi/<asset_id>/norm_stats.json`.
 
 ### Video/Parquet Timestamp Mismatch After Pause Removal
 
@@ -466,7 +451,7 @@ bash models/preprocessing_data/pipeline.sh \
     --trim-frames 165 --remove-episodes "45" --sigma 1.5
 
 # 1. Clone upstream openpi, apply patches, and install.
-bash models/openpi/run_scripts/refresh_pi.sh
+bash models/openpi/run_scripts/setup.sh
 
 # 2. Compute normalization stats.
 bash models/openpi/run_scripts/preprocess.sh

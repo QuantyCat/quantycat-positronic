@@ -16,6 +16,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
+OPENPI_VENV="${OPENPI_VENV:-$REPO/.venvs/openpi}"
 DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
 EVAL_SCRIPT="$REPO/models/openpi/eval/core_evals/relative_eval.py"
 DATASET_ROOT="${DATASET_ROOT:-$DATA_HOME/datasets/screwdriver_so101_clean_v2}"
@@ -57,6 +58,8 @@ echo "  dataset:     $DATASET_ROOT"
 echo ""
 
 cd "$OPENPI_REPO"
+
+export UV_PROJECT_ENVIRONMENT="$OPENPI_VENV"
 
 HF_LEROBOT_HOME="$DATA_HOME/datasets" \
     "${UV_CMD[@]}" run python "$EVAL_SCRIPT" \

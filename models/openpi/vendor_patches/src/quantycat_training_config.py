@@ -13,18 +13,6 @@ import numpy as np
 
 _DATA_HOME = os.environ.get("QUANTYCAT_DATA_HOME", str(pathlib.Path.home() / "quantycat-data"))
 
-DACHA_REPO_ID = "dacha/dacha_v3_openpi_v21"
-DACHA_TRAIN_EPISODES = list(range(40))
-DACHA_WIRE_V5_TRAIN_REPO_ID = "dacha/dacha_v5_train_openpi_v21"
-DACHA_WIRE_V5_REPO_ID = "dacha/dacha_v5_openpi_v21"
-DACHA_WIRE_V5_EP16_99_TRAIN_REPO_ID = "dacha/dacha_v5_ep16_99_train_openpi_v21"
-DACHA_WIRE_V5_HOLDOUT_EPISODES = list(range(60, 70)) + list(range(88, 91)) + [98, 99]
-DACHA_WIRE_V5_TRAIN_EPISODES = [
-    episode for episode in range(100) if episode not in set(DACHA_WIRE_V5_HOLDOUT_EPISODES)
-]
-DACHA_WIRE_V5_EARLY_HOLDOUT_EPISODES = list(range(1, 16))
-DACHA_WIRE_V5_EP16_99_TRAIN_EPISODES = list(range(16, 100))
-
 
 def get_quantycat_configs():
     # Deferred imports avoid circular dependency with config.py.
@@ -46,11 +34,8 @@ def get_quantycat_configs():
         repo_id is a short dataset name resolved via HF_LEROBOT_HOME.
         stats_repo_id is the dataset to read norm stats from (defaults to repo_id).
           Use this when the training dataset is v2 format but stats are on a v3 copy.
-        right_wrist_source controls which image fills the right_wrist_0_rgb slot;
-        see quantycat_policy.QuantycatInputs for valid values.
         """
 
-        right_wrist_source: str = "wrist"
         action_sequence_keys: tuple = ("action",)
         stats_repo_id: str | None = None
 
@@ -71,7 +56,7 @@ def get_quantycat_configs():
             )
 
             data_transforms = _transforms.Group(
-                inputs=[quantycat_policy.QuantycatInputs(right_wrist_source=self.right_wrist_source)],
+                inputs=[quantycat_policy.QuantycatInputs()],
                 outputs=[quantycat_policy.QuantycatOutputs(action_dim=6)],
             )
 
@@ -140,48 +125,8 @@ def get_quantycat_configs():
             action_expert_variant="gemma_300m_lora",
         )
 
-    def _dacha_lora_model(*, action_horizon: int = 50):
-        return pi0_config.Pi0Config(
-            pi05=True,
-            action_horizon=action_horizon,
-            paligemma_variant="gemma_2b_lora",
-            action_expert_variant="gemma_300m_lora",
-        )
-
     _checkpoint_base = os.path.join(_DATA_HOME, "checkpoints", "openpi")
-    _dacha_checkpoint_base = os.path.join(_DATA_HOME, "checkpoints", "openpi", "dacha")
     _pi05_weights = "gs://openpi-assets/checkpoints/pi05_base/params"
-
-    def _dacha_train_config(
-        name: str,
-        *,
-        repo_id: str = DACHA_REPO_ID,
-        train_episodes: list[int] = DACHA_TRAIN_EPISODES,
-        action_horizon: int = 50,
-        num_workers: int = 2,
-        num_train_steps: int = 10_000,
-        save_interval: int = 1000,
-        keep_period: int | None = 5000,
-    ) -> TrainConfig:
-        lora_model = _dacha_lora_model(action_horizon=action_horizon)
-        return TrainConfig(
-            name=name,
-            model=lora_model,
-            data=LeRobotQuantycatDataConfig(
-                repo_id=repo_id,
-                base_config=DataConfig(prompt_from_task=True, train_episodes=train_episodes),
-            ),
-            weight_loader=weight_loaders.CheckpointWeightLoader(_pi05_weights),
-            num_train_steps=num_train_steps,
-            freeze_filter=lora_model.get_freeze_filter(),
-            ema_decay=None,
-            batch_size=4,
-            num_workers=num_workers,
-            save_interval=save_interval,
-            keep_period=keep_period,
-            wandb_enabled=False,
-            checkpoint_base_dir=_dacha_checkpoint_base,
-        )
 
     return [
         #
@@ -198,7 +143,7 @@ def get_quantycat_configs():
             data=LeRobotQuantycatDataConfig(
                 repo_id="screwdriver_so101_clean_v2",
                 stats_repo_id="screwdriver_so101_clean_v3",
-                base_config=DataConfig(prompt_from_task=True, train_episodes=list(range(44))),
+                base_config=DataConfig(prompt_from_task=True),
             ),
             weight_loader=weight_loaders.CheckpointWeightLoader(_pi05_weights),
             num_train_steps=10_000,
@@ -210,44 +155,5 @@ def get_quantycat_configs():
             keep_period=5000,
             wandb_enabled=False,
             checkpoint_base_dir=_checkpoint_base,
-        ),
-        _dacha_train_config("pi05_dacha_lora"),
-        # Used by models/openpi/run_scripts/dacha/train_dacha_weighted.sh.
-        # num_workers=0 keeps the runtime weighted-dataset wrapper simple and
-        # avoids multiprocessing pickle issues.
-        _dacha_train_config("pi05_dacha_lora_motion_weighted", num_workers=0),
-        _dacha_train_config("pi05_dacha_lora_h20_motion_sampled", action_horizon=20, num_workers=0),
-        _dacha_train_config(
-            "pi05_dacha_lora_h50_motion_sampled",
-            action_horizon=50,
-            num_workers=0,
-            save_interval=2500,
-            keep_period=2500,
-        ),
-        _dacha_train_config(
-            "pi05_dacha_lora_h50_early_weighted_2500",
-            action_horizon=50,
-            num_workers=0,
-            num_train_steps=2500,
-            save_interval=2500,
-            keep_period=2500,
-        ),
-        _dacha_train_config(
-            "pi05_dacha_wire_v5_h50_early_weighted",
-            repo_id=DACHA_WIRE_V5_TRAIN_REPO_ID,
-            train_episodes=list(range(len(DACHA_WIRE_V5_TRAIN_EPISODES))),
-            action_horizon=50,
-            num_workers=0,
-            save_interval=2500,
-            keep_period=2500,
-        ),
-        _dacha_train_config(
-            "pi05_dacha_wire_v5_h50_early_weighted_ep16_99",
-            repo_id=DACHA_WIRE_V5_EP16_99_TRAIN_REPO_ID,
-            train_episodes=list(range(len(DACHA_WIRE_V5_EP16_99_TRAIN_EPISODES))),
-            action_horizon=50,
-            num_workers=0,
-            save_interval=2500,
-            keep_period=2500,
         ),
     ]
