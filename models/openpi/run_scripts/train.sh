@@ -15,7 +15,27 @@ REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 OPENPI_REPO="${OPENPI_REPO:-$REPO/vendor/openpi}"
 OPENPI_VENV="${OPENPI_VENV:-$REPO/.venvs/openpi}"
 CONFIG_NAME="${CONFIG_NAME:-pi05_quantycat_template}"
-EXP_NAME="${EXP_NAME:-$(TZ=America/Los_Angeles date +%m%d%Y)_pi05_openpi}"
+
+# Derive a default EXP_NAME from --data.repo-id (if passed) so checkpoint/log
+# paths identify the dataset, not just a generic date stamp.
+DATASET_NAME=""
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    if [[ "$arg" == --data.repo-id=* ]]; then
+        DATASET_NAME="${arg#--data.repo-id=}"
+    elif [[ "$arg" == "--data.repo-id" ]]; then
+        DATASET_NAME="${args[$((i + 1))]:-}"
+    fi
+done
+DATASET_NAME="${DATASET_NAME//\//_}"
+
+if [ -n "$DATASET_NAME" ]; then
+    DEFAULT_EXP_NAME="$(TZ=America/Los_Angeles date +%m%d%Y)_${DATASET_NAME}"
+else
+    DEFAULT_EXP_NAME="$(TZ=America/Los_Angeles date +%m%d%Y)_pi05_openpi"
+fi
+EXP_NAME="${EXP_NAME:-$DEFAULT_EXP_NAME}"
 DATA_HOME="${QUANTYCAT_DATA_HOME:-$HOME/quantycat-data}"
 CHECKPOINT_DIR="$DATA_HOME/checkpoints/openpi/${CONFIG_NAME}/${EXP_NAME}"
 LOG_DIR="${LOG_DIR:-$DATA_HOME/logs/openpi}"
@@ -57,8 +77,16 @@ echo "  checkpoints: $CHECKPOINT_DIR"
 echo "  log:         $LOG_PATH"
 echo ""
 
+# The full, unfiltered output always goes to LOG_PATH. The live screen only
+# shows progress/checkpoint/error lines — openpi/JAX/orbax startup logging is
+# extremely verbose (parameter shape dumps, checkpoint handler internals,
+# backend probing) and drowns out anything useful.
+SCREEN_FILTER='Progress on:|Step [0-9]+:|Restoring checkpoint|Finished restoring|Found [0-9]+ checkpoint|[Ss]aving checkpoint|[Ss]aved checkpoint|\[(W|E|C)\]|Traceback|Error:|error:'
+
 XLA_PYTHON_CLIENT_MEM_FRACTION="${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.9}" \
-    "${UV_CMD[@]}" run scripts/train.py "$CONFIG_NAME" --exp-name="$EXP_NAME" --overwrite "$@" 2>&1 | tee "$LOG_PATH"
+    PYTHONUNBUFFERED=1 \
+    "${UV_CMD[@]}" run scripts/train.py "$CONFIG_NAME" --exp-name="$EXP_NAME" --overwrite "$@" 2>&1 \
+    | tee "$LOG_PATH" | grep --line-buffered -E "$SCREEN_FILTER"
 
 echo ""
 echo "Training command finished."
